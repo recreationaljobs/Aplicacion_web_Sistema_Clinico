@@ -4,32 +4,53 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class LoginSerializer(TokenObtainPairSerializer):
-    """Emite JWT y devuelve solo los datos públicos necesarios por la interfaz."""
+    """
+    Autenticación mediante nombre de usuario y contraseña.
+    """
 
-    username_field = "email"
+    username_field = "username"
+
     default_error_messages = {
-        "no_active_account": "Correo electrónico o contraseña incorrectos.",
+        "no_active_account": (
+            "Usuario o contraseña incorrectos."
+        ),
     }
 
     def validate(self, attrs):
-        email = attrs.get("email", "").strip().lower()
+        username = attrs.get(
+            "username",
+            ""
+        ).strip()
+
         password = attrs.get("password")
-        user = authenticate(request=self.context.get("request"), email=email, password=password)
+
+        user = authenticate(
+            request=self.context.get("request"),
+            username=username,
+            password=password
+        )
 
         if user is None or not user.is_active:
             raise serializers.ValidationError(
-                {"detail": "Correo electrónico o contraseña incorrectos."},
+                {
+                    "detail": (
+                        "Usuario o contraseña incorrectos."
+                    )
+                },
                 code="authorization",
             )
 
         refresh = self.get_token(user)
+
         return {
             "access": str(refresh.access_token),
             "refresh": str(refresh),
             "user": {
                 "id": user.id,
+                "username": user.username,
                 "email": user.email,
                 "first_name": user.first_name,
+                "last_name": user.last_name,
                 "role": user.role,
             },
         }
