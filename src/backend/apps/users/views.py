@@ -1,5 +1,7 @@
 import mimetypes
 import time
+import logging
+from smtplib import SMTPException
 
 from rest_framework import status
 from django.conf import settings
@@ -210,18 +212,21 @@ class PasswordResetRequestView(APIView):
             uid = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
             reset_url = f"{settings.FRONTEND_URL}/restablecer-contrasena/{uid}/{token}"
-            send_mail(
-                subject="Restablece tu contraseña de DentalClinic",
-                message=(
-                    f"Hola {user.first_name or 'usuario'},\n\n"
-                    "Usa el siguiente enlace para crear una nueva contraseña. "
-                    "El enlace vence en 60 minutos:\n\n"
-                    f"{reset_url}\n\n"
-                    "Si no solicitaste este cambio, ignora este mensaje."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-            )
+            try:
+                send_mail(
+                    subject="Restablece tu contraseña de DentalClinic",
+                    message=(
+                        f"Hola {user.first_name or 'usuario'},\n\n"
+                        "Usa el siguiente enlace para crear una nueva contraseña. "
+                        "El enlace vence en 60 minutos:\n\n"
+                        f"{reset_url}\n\n"
+                        "Si no solicitaste este cambio, ignora este mensaje."
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                )
+            except (SMTPException, OSError):
+                logging.getLogger("dentalclinic.mail").error("Password reset delivery failed", extra={"request_id": getattr(request, "request_id", "")})
 
         return Response({"detail": PASSWORD_RESET_MESSAGE}, status=status.HTTP_200_OK)
 

@@ -1,5 +1,7 @@
 # Correcciones y preparación de demo
 
+> Informe histórico del 6 de septiembre de 2026. Sus conteos, migraciones y pendientes describen esa versión. El estado vigente y la evidencia de esta preparación están en [production-readiness.md](production-readiness.md); la operación está en [deployment.md](deployment.md). Este informe no define los requisitos del lanzamiento actual.
+
 ## Cambios implementados
 
 | Área | Comportamiento |

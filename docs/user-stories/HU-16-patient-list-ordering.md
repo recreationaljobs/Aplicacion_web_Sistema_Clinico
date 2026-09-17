@@ -1,5 +1,7 @@
 # HU-16 — Listado y ordenación de pacientes
 
+> Los ensayos de navegador anteriores se conservan como evidencia histórica, no como comandos ejecutables actuales. Las suites vigentes y el smoke reproducible están en [preparación para producción](../production-readiness.md).
+
 **Estado:** Implementada y validada el 1 de septiembre de 2026.
 
 ## Contrato
@@ -38,6 +40,12 @@ npm test -- --reporter=dot
 npm run lint
 npm run build
 ```
+
+### Ajuste visual — 16 de septiembre de 2026
+
+- Buscador y selectores comparten altura de 44 px y se alinean por su borde inferior; la lupa SVG se centra dentro del buscador. En móvil los controles conservan su disposición vertical.
+- Chromium verifica geometría, centrado y ausencia de desbordamiento en 1280×900 y 390×844 con **evidencia histórica de navegador (script puntual retirado)**.
+- Las 3 pruebas de `PatientsPage.test.jsx`, lint y build pasan.
 
 ## Fuera de alcance
 

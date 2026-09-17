@@ -1,7 +1,20 @@
+from datetime import time
+
 from django.core.signals import request_finished
 from django.db import close_old_connections, connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
+
+
+def open_clinic_days():
+    """Explicit open-hours fixture for tests that expect successful bookings."""
+    from apps.clinics.models import BusinessHour
+
+    for weekday in range(7):
+        BusinessHour.objects.update_or_create(
+            weekday=weekday,
+            defaults={"is_open": True, "opens_at": time(0), "closes_at": time(23, 59)},
+        )
 
 
 class MigrationTestCase(TransactionTestCase):

@@ -66,6 +66,9 @@ class AuditRouteResolutionTests(SimpleTestCase):
 
 class AuditEventClassificationTests(APITestCase):
     def setUp(self):
+        from apps.common.test_utils import open_clinic_days
+
+        open_clinic_days()
         self.private_root = Path(tempfile.mkdtemp(prefix="audit-documents-"))
         self.settings_override = override_settings(PRIVATE_MEDIA_ROOT=self.private_root)
         self.settings_override.enable()

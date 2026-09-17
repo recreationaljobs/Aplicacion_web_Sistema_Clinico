@@ -6,6 +6,7 @@ from rest_framework.test import APITestCase
 from apps.appointments.models import Appointment
 from apps.clinics.availability import clinic_today
 from apps.users.models import User
+from apps.common.test_utils import open_clinic_days
 
 from .models import Consultation, OdontogramVersion, Patient
 
@@ -126,7 +127,7 @@ class FlexiblePatientIdentificationApiTests(Hu53PatientTestMixin, APITestCase):
                 first_name="Primera",
                 email="first-typed-id@example.test",
                 identification_type="CEDULA",
-                identification_number="  ab-001-a  ",
+                identification_number="  2810904031006k  ",
             ),
             format="json",
         )
@@ -136,7 +137,7 @@ class FlexiblePatientIdentificationApiTests(Hu53PatientTestMixin, APITestCase):
                 first_name="Duplicada",
                 email="duplicate-typed-id@example.test",
                 identification_type="CEDULA",
-                identification_number="AB-001-A",
+                identification_number="281-090403-1006K",
             ),
             format="json",
         )
@@ -146,7 +147,7 @@ class FlexiblePatientIdentificationApiTests(Hu53PatientTestMixin, APITestCase):
                 first_name="Otro tipo",
                 email="other-type-id@example.test",
                 identification_type="PASAPORTE",
-                identification_number="ab-001-a",
+                identification_number="281-090403-1006k",
             ),
             format="json",
         )
@@ -214,6 +215,7 @@ class PatientProfileCompletenessTests(Hu53PatientTestMixin, APITestCase):
 
 class IncompleteProfileSchedulingAndClinicalGateTests(Hu53PatientTestMixin, APITestCase):
     def setUp(self):
+        open_clinic_days()
         self.admin = User.objects.create_user(
             email="admin-hu53-gates@example.test",
             password="SyntheticOnly123!",

@@ -24,6 +24,13 @@ def normalize_identification_key(identification_type, value):
     return normalized
 
 
+def format_cedula(value):
+    number = normalize_identification_key(CEDULA, value)
+    if number is None or not re.fullmatch(r"[0-9]{13}[A-Z]", number):
+        return None
+    return f"{number[:3]}-{number[3:9]}-{number[9:]}"
+
+
 def identification_key_expression():
     """Return the expression used by the database duplicate constraint."""
     number = Trim("identification_number")

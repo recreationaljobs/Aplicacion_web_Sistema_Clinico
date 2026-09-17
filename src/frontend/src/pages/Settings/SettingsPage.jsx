@@ -188,7 +188,7 @@ function MemberForm({ onClose, onSaved, accessToken, editingUser }) {
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="member-form-title" className="max-h-[92vh] w-full max-w-xl overscroll-contain overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 id="member-form-title" className="font-serif text-2xl font-semibold text-slate-900">{isEditing ? 'Editar miembro' : 'Añadir miembro'}</h2>
+            <h2 id="member-form-title" className="font-sans text-2xl font-semibold text-slate-900">{isEditing ? 'Editar miembro' : 'Añadir miembro'}</h2>
             <p className="mt-1 text-sm text-slate-500">{isEditing ? 'Actualiza los datos y el acceso de esta cuenta.' : 'Crea las credenciales para el personal autorizado.'}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar formulario" className="rounded-full p-2 text-slate-500 hover:bg-slate-100">×</button>
@@ -229,7 +229,7 @@ function MemberForm({ onClose, onSaved, accessToken, editingUser }) {
               <label className="grid gap-1.5 text-sm font-medium text-slate-700">Especialidad
                 <input maxLength="200" name="specialty" value={form.specialty || ''} onChange={update} className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" />
               </label>
-              <label className="grid gap-1.5 text-sm font-medium text-slate-700">Número de registro profesional
+              <label className="grid gap-1.5 text-sm font-medium text-slate-700">Código MINSA
                 <input maxLength="100" name="professional_registration_number" value={form.professional_registration_number || ''} onChange={update} className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" />
               </label>
               <p className="text-xs leading-5 text-slate-500 sm:col-span-2">Ambos datos son opcionales y se conservan si posteriormente cambia el rol.</p>
@@ -340,7 +340,7 @@ function ArchiveMemberDialog({ accessToken, member, onClose, onArchived }) {
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4" role="presentation">
       <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="archive-member-title" aria-describedby="archive-member-description" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="grid h-11 w-11 place-items-center rounded-full bg-amber-50 text-xl text-amber-700" aria-hidden="true">↓</div>
-        <h2 id="archive-member-title" className="mt-4 font-serif text-2xl font-semibold text-slate-900">Archivar usuario</h2>
+        <h2 id="archive-member-title" className="mt-4 font-sans text-2xl font-semibold text-slate-900">Archivar usuario</h2>
         <p id="archive-member-description" className="mt-2 text-sm leading-6 text-slate-600">
           ¿Quieres archivar a <strong className="text-slate-900">{userDisplayName(member)}</strong>?
         </p>
@@ -468,7 +468,7 @@ export default function SettingsPage() {
     <div className="mx-auto w-full max-w-6xl">
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Administración</p>
-        <h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight text-slate-900">Configuración</h1>
+        <h1 className="mt-1 font-sans text-4xl font-semibold tracking-tight text-slate-900">Configuración</h1>
         <p className="mt-2 text-sm text-slate-500">Administra los parámetros de la clínica, servicios y personal.</p>
       </header>
 
@@ -487,7 +487,7 @@ export default function SettingsPage() {
 
         {activeSection === 'Gestión de Staff' ? <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="staff-title">
           <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-start sm:justify-between">
-            <div><h2 id="staff-title" className="font-serif text-xl font-semibold text-slate-900">Gestión de Staff</h2><p className="mt-1 text-xs text-slate-500">Administra los profesionales y asistentes de la clínica.</p></div>
+            <div><h2 id="staff-title" className="font-sans text-xl font-semibold text-slate-900">Gestión de Staff</h2><p className="mt-1 text-xs text-slate-500">Administra los profesionales y asistentes de la clínica.</p></div>
             <button type="button" aria-label="Añadir miembro" onClick={openCreateForm} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">＋ Añadir miembro</button>
           </div>
 

@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import AppointmentUndoCheckInView
 
 from .views import (
     AppointmentCheckInView,
@@ -14,6 +15,7 @@ app_name = "appointments"
 
 
 urlpatterns = [
+    path("<int:pk>/undo-check-in/", AppointmentUndoCheckInView.as_view(), name="appointment-undo-check-in"),
     path("", AppointmentListCreateView.as_view(), name="appointment-list-create"),
     path(
         "dentists/availability/",

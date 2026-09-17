@@ -8,7 +8,6 @@ class ClinicProfile(models.Model):
         USD = "USD", "Dólar estadounidense ($)"
 
     name = models.CharField(max_length=150, default="DentalClinic")
-    tagline = models.CharField(max_length=200, blank=True)
     phone = models.CharField(max_length=30, blank=True)
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
@@ -81,7 +80,7 @@ class ClinicService(models.Model):
     duration_minutes = models.PositiveSmallIntegerField(
         validators=(MinValueValidator(15), MaxValueValidator(240)),
     )
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=(MinValueValidator(0),))
     position = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -89,3 +88,4 @@ class ClinicService(models.Model):
 
     class Meta:
         ordering = ("category__position", "position", "name")
+        constraints = [models.CheckConstraint(condition=models.Q(price__gte=0), name="clinic_service_nonnegative_price")]

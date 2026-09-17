@@ -123,7 +123,7 @@ export default function LongitudinalTreatmentPlan({
   return <section aria-labelledby="treatment-plan-title" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 id="treatment-plan-title" className="font-serif text-2xl font-semibold text-slate-900">Plan de tratamiento</h2>
+        <h2 id="treatment-plan-title" className="font-sans text-2xl font-semibold text-slate-900">Plan de tratamiento</h2>
         <p className="mt-1 text-sm text-slate-500">Plan longitudinal estructurado del paciente.</p>
       </div>
       {headerAction}

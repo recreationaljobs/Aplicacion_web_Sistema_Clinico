@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime, time, timedelta
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase
 from django.utils import timezone
@@ -14,6 +15,7 @@ from apps.clinics.models import (
     ServiceCategory,
 )
 from apps.audit.models import AuditEvent
+from apps.common.test_utils import open_clinic_days
 from apps.patients.models import Consultation, OdontogramVersion, Patient
 from apps.users.models import RolePermissionPreset, User
 
@@ -55,6 +57,7 @@ class AppointmentApiTests(APITestCase):
     list_url = "/api/appointments/"
 
     def setUp(self):
+        open_clinic_days()
         self.receptionist = User.objects.create_user(
             email="recepcion-citas@dentalclinic.com",
             password="ContraseñaRecepcion123!",
@@ -517,6 +520,48 @@ class AppointmentApiTests(APITestCase):
         self.assertEqual(retained.data["service"], service.pk)
         self.assertEqual(retained.data["service_name"], "Limpieza")
 
+    def test_closed_day_rejects_booking_before_first_hours_save(self):
+        profile = ClinicProfile.load()
+        self.assertFalse(profile.schedule_configured)
+        BusinessHour.objects.update_or_create(
+            weekday=5, defaults={"is_open": False, "opens_at": None, "closes_at": None},
+        )
+        self.client.force_authenticate(self.receptionist)
+        response = self.client.post(
+            self.list_url, self.payload(date="2026-09-19"), format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cerrada", str(response.data).lower())
+        self.assertFalse(Appointment.objects.exists())
+
+    def test_closed_day_rejects_availability_before_first_hours_save(self):
+        self.assertFalse(ClinicProfile.load().schedule_configured)
+        BusinessHour.objects.update_or_create(
+            weekday=5, defaults={"is_open": False, "opens_at": None, "closes_at": None},
+        )
+        self.client.force_authenticate(self.receptionist)
+        response = self.client.get(
+            f"{self.list_url}dentists/availability/"
+            "?date=2026-09-19&start_time=09:00&duration_minutes=30",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("cerrada", str(response.data).lower())
+
+    def test_existing_closed_day_appointment_can_be_cancelled(self):
+        BusinessHour.objects.update_or_create(
+            weekday=5, defaults={"is_open": False, "opens_at": None, "closes_at": None},
+        )
+        appointment = self.create_appointment(date=date(2026, 9, 19))
+        self.client.force_authenticate(self.receptionist)
+        response = self.client.patch(
+            f"{self.list_url}{appointment.pk}/",
+            {"status": "CANCELADA", "cancellation_reason": "Horario cerrado"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        appointment.refresh_from_db()
+        self.assertEqual(appointment.status, Appointment.Status.CANCELLED)
+
     def test_configured_schedule_rejects_closed_hours_breaks_and_holidays(self):
         appointment_date = date(2027, 8, 9)  # Monday.
         profile = ClinicProfile.load()
@@ -633,7 +678,9 @@ class AppointmentApiTests(APITestCase):
         self.assertEqual(consultation.summary, appointment.reason)
         self.assertEqual(consultation.chief_complaint, appointment.reason)
         self.assertEqual(consultation.dental_service, service.name)
-        local_start = timezone.localtime(appointment.attendance_started_at)
+        local_start = appointment.attendance_started_at.astimezone(
+            ZoneInfo(ClinicProfile.load().timezone)
+        )
         self.assertEqual(consultation.date, local_start.date())
         self.assertEqual(consultation.time, local_start.time().replace(microsecond=0))
         self.assertEqual(

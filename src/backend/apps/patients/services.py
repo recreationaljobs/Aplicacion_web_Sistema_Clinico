@@ -10,6 +10,7 @@ from apps.appointments.models import Appointment
 from apps.users.permissions import user_has_permission
 
 from .models import Consultation, OdontogramVersion, Patient, TreatmentItem
+from .traceability import record_revision
 from .odontograms import (
     CURRENT_SURFACE_FINDINGS,
     CURRENT_WHOLE_FINDINGS,
@@ -372,12 +373,14 @@ def complete_consultation(*, consultation_id, actor):
             )
         require_complete_patient_profile(consultation.patient)
 
+        record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, reason="Estado previo al cierre")
         consultation.status = Consultation.Status.COMPLETED
         consultation.completed_at = timezone.now()
         consultation.completed_by = actor
         consultation.save(
             update_fields=("status", "completed_at", "completed_by", "updated_at")
         )
+        record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, author=actor, reason="Cierre de consulta")
         if appointment is not None:
             appointment.status = Appointment.Status.COMPLETED
             appointment.save(update_fields=("status", "updated_at"))
@@ -400,6 +403,8 @@ def cancel_consultation(*, consultation_id, actor):
                 "consultation_linked_cancellation_unsupported",
                 "No es posible cancelar una consulta vinculada sin una regla segura para la cita.",
             )
+        record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, reason="Estado previo a cancelación")
         consultation.status = Consultation.Status.CANCELLED
         consultation.save(update_fields=("status", "updated_at"))
+        record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, author=actor, reason="Cancelación de consulta")
         return ConsultationOperationResult(consultation, None)

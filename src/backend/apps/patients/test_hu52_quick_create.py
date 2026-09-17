@@ -91,7 +91,7 @@ class PatientQuickCreateApiTests(APITestCase):
                         first_name=f"Paciente {index}",
                         phone="",
                         identification_type=identification_type,
-                        identification_number=f"ID-{identification_type}-{index}",
+                        identification_number=("001-010190-1001A" if identification_type == "CEDULA" else f"ID-{identification_type}-{index}"),
                     ),
                     format="json",
                 )
@@ -172,4 +172,3 @@ class PatientQuickCreateApiTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("birth_place", response.data)
         self.assertIn("gender", response.data)
-

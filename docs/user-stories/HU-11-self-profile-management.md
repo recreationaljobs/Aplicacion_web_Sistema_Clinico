@@ -7,7 +7,7 @@
 ## Criterios de aceptación
 
 - Administración, Recepción y Odontología acceden a **Mi perfil** desde el menú del avatar.
-- Cada usuario modifica únicamente su nombre, apellidos, teléfono, correo y fotografía.
+- Cada usuario modifica su nombre, apellidos, teléfono, especialidad, código MINSA, correo y fotografía.
 - Cambiar el correo requiere confirmar la contraseña actual y mantiene activa la sesión.
 - Rol, estado, permisos y contraseña no son modificables desde el perfil personal.
 - Administración puede registrar y editar teléfono y fotografía desde **Gestión de Staff**.
@@ -46,3 +46,9 @@
 La edición del perfil bloquea y vuelve a comprobar el usuario para evitar reactivar una cuenta archivada durante la solicitud. Las imágenes se recodifican y las cargas se bloquean en demo. Regresión: `python manage.py test apps.users.test_production_safety apps.users.test_file_cleanup --settings=config.settings.test`.
 
 El alcance y los pendientes de producción están en [el informe de correcciones](../production-readiness-improvements.md).
+
+## Ajuste del perfil profesional del 16 de septiembre de 2026
+
+- Mi perfil y Gestión de Staff editan los mismos campos de User; Código MINSA usa `professional_registration_number`. Se mantienen longitudes, opcionalidad y protección del rol y permisos.
+- Guardar el perfil actualiza el contexto autenticado, incluidos los datos profesionales que se muestran al abrir una nueva consulta. La consulta existente lee nombre, especialidad, código y teléfono del profesional asignado como metadatos de solo lectura.
+- Evidencia: 143 pruebas backend de cuentas, perfiles profesionales, pacientes/consultas y PDF correctas; 91 pruebas frontend de perfil, Staff y App correctas. Verificación ampliada del flujo perfil/Staff/consulta: 8 casos correctos.

@@ -32,8 +32,6 @@ def closure_for_date(appointment_date):
 
 
 def schedule_error(appointment_date, start_time, duration_minutes):
-    if not ClinicProfile.load().schedule_configured:
-        return None
     closure = closure_for_date(appointment_date)
     if closure:
         return f"La clínica está cerrada por {closure.name}."
@@ -79,7 +77,10 @@ def future_appointment_conflicts(*, days=None, closure=None):
 
     appointments = Appointment.objects.select_related("patient").filter(
         date__gte=clinic_today(),
-        status__in=(Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED),
+        status__in=(
+            Appointment.Status.SCHEDULED, Appointment.Status.CONFIRMED,
+            Appointment.Status.CHECKED_IN, Appointment.Status.IN_ATTENDANCE,
+        ),
     )
     if days is not None:
         days_by_weekday = {day["weekday"]: day for day in days}

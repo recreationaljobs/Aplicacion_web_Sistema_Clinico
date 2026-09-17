@@ -60,6 +60,11 @@ export const listAppointmentReschedules = (access, id) => collectPaginatedResult
   ),
 )
 
+export const undoCheckInAppointment = (access, id, correction) => apiRequest(
+  `/api/appointments/${id}/undo-check-in/`,
+  { method: 'POST', body: JSON.stringify(correction), headers: authorization(access) },
+)
+
 export const getAvailableDentists = (access, values) => apiRequest(
   `/api/appointments/dentists/availability/${queryString({
     date: values.date,

@@ -3,6 +3,7 @@ from datetime import date
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.urls import reverse
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -29,7 +30,9 @@ from .models import (
     TreatmentItem,
 )
 from .duplicates import PossiblePatientDuplicate
+from .traceability import clinical_snapshot, clinical_snapshot_value, record_revision
 from .identifiers import (
+    format_cedula,
     identification_key_expression,
     normalize_identification_key,
     normalize_identification_number,
@@ -137,6 +140,7 @@ class PossiblePatientDuplicateSerializer(serializers.Serializer):
 class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSerializer):
     full_name = serializers.CharField(read_only=True)
     clinical_record = ClinicalRecordSerializer(required=False)
+    clinical_change_reason = serializers.CharField(max_length=1000, allow_blank=False, required=False, write_only=True)
     profile_complete = serializers.SerializerMethodField()
     missing_profile_fields = serializers.SerializerMethodField()
 
@@ -174,7 +178,7 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
             "is_active",
             "profile_complete",
             "missing_profile_fields",
-            "clinical_record",
+            "clinical_record", "clinical_change_reason",
             "version", "expected_version",
             "registered_by",
             "created_at",
@@ -245,6 +249,21 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
         if identification_type == "":
             identification_type = None
         identification_number = normalize_identification_number(identification_number)
+        if identification_type == Patient.IdentificationType.CEDULA and identification_number:
+            formatted_number = format_cedula(identification_number)
+            identity_changed = (
+                not self.instance
+                or "identification_type" in attrs
+                or "identification_number" in attrs
+            )
+            if identity_changed and formatted_number is None:
+                raise serializers.ValidationError({
+                    "identification_number": [
+                        "Usa el formato de cédula 281-090403-1006K: "
+                        "tres dígitos, seis dígitos y cuatro dígitos más una letra."
+                    ],
+                })
+            identification_number = formatted_number or identification_number
 
         if identification_number and not identification_type:
             raise serializers.ValidationError({
@@ -261,7 +280,7 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
         if "identification_type" in attrs or not self.instance:
             attrs["identification_type"] = identification_type
-        if "identification_number" in attrs or not self.instance:
+        if "identification_number" in attrs or "identification_type" in attrs or not self.instance:
             attrs["identification_number"] = identification_number
 
         for field in ("guardian_name", "guardian_relationship", "guardian_phone"):
@@ -286,6 +305,7 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
     def create(self, validated_data):
         record_data = validated_data.pop("clinical_record", {})
+        validated_data.pop("clinical_change_reason", None)
         if self.context.get("quick_create"):
             validated_data.setdefault("birth_place", "")
             validated_data.setdefault("gender", "")
@@ -294,7 +314,8 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
         try:
             with transaction.atomic():
                 patient = super().create(validated_data)
-                ClinicalRecord.objects.create(patient=patient, **record_data)
+                record = ClinicalRecord.objects.create(patient=patient, **record_data)
+                record_revision(patient=patient, instance=record, author=patient.registered_by, reason="Creación del expediente")
                 return patient
         except IntegrityError:
             if self._identity_conflict_exists(
@@ -312,6 +333,7 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
     def update(self, instance, validated_data):
         record_data = validated_data.pop("clinical_record", None)
+        reason = validated_data.pop("clinical_change_reason", "")
         identification_type = validated_data.get(
             "identification_type",
             instance.identification_type,
@@ -326,12 +348,22 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                 self.check_version(locked, validated_data)
                 instance = locked
                 self.instance = instance
+                record, _ = ClinicalRecord.objects.get_or_create(patient=locked)
+                before = clinical_snapshot(record)
+                changed = record_data is not None and any(before.get(field) != clinical_snapshot_value(value) for field, value in record_data.items())
+                if changed and settings.REQUIRE_EDIT_VERSION and not reason:
+                    raise serializers.ValidationError({"clinical_change_reason": "Indica el motivo del cambio clínico."})
+                if changed:
+                    record_revision(patient=locked, instance=record, reason="Estado previo a la modificación")
                 patient = super().update(instance, validated_data)
                 if record_data is not None:
                     record, _ = ClinicalRecord.objects.get_or_create(patient=patient)
                     for field, value in record_data.items():
                         setattr(record, field, value)
                     record.save()
+                    if changed:
+                        request = self.context.get("request")
+                        record_revision(patient=patient, instance=record, author=getattr(request, "user", None), reason=reason or "Actualización en desarrollo")
                 return patient
         except IntegrityError:
             if self._identity_conflict_exists(
@@ -353,14 +385,12 @@ class ConsultationSerializer(VersionedSerializer):
         source="get_consultation_type_display",
         read_only=True,
     )
-    professional_name = serializers.CharField(
-        source="professional_name_snapshot",
-        read_only=True,
-    )
+    professional_name = serializers.SerializerMethodField()
     professional_specialty = serializers.CharField(
         source="professional.specialty",
         read_only=True,
     )
+    professional_phone = serializers.CharField(source="professional.phone", read_only=True)
     professional_registration_number = serializers.CharField(
         source="professional.professional_registration_number",
         read_only=True,
@@ -373,24 +403,21 @@ class ConsultationSerializer(VersionedSerializer):
         fields = (
             "id", "patient", "professional", "professional_name",
             "version", "expected_version",
-            "professional_specialty", "professional_registration_number", "completed_at",
+            "professional_specialty", "professional_registration_number", "professional_phone", "completed_at",
             "completed_by", "completed_by_name", "date", "time",
             "consultation_type", "consultation_type_display", "summary", "status",
-            "status_display", "examiner_national_id", "inss_number", "cema_number",
-            "dental_service", "chief_complaint", "present_illness_history", "respiratory",
+            "status_display", "examiner_national_id",
+            "dental_service", "chief_complaint", "respiratory",
             "cardiovascular", "hepatic_renal", "gastrointestinal", "neurological",
             "blood_system", "reproductive_organs", "heart_rate", "respiratory_rate",
             "blood_pressure", "temperature", "weight", "height", "body_surface_area",
-            "bmi", "general_appearance", "skin_and_mucosa", "thorax", "rib_cage",
-            "breasts", "lung_fields", "cardiac", "abdomen_pelvis", "rectal_exam",
-            "musculoskeletal", "upper_extremities", "lower_extremities", "genitourinary",
-            "gynecological_exam", "neurological_exam", "observations_analysis",
-            "dental_diagnoses", "treatment_plan", "budget", "treatment_performed",
+            "bmi", "general_appearance", "skin_and_mucosa",
+            "dental_diagnoses", "treatment_plan", "budget",
             "created_at", "updated_at",
         )
         read_only_fields = (
             "id", "patient", "professional", "professional_name",
-            "professional_specialty", "professional_registration_number", "completed_at",
+            "professional_specialty", "professional_registration_number", "professional_phone", "completed_at",
             "completed_by", "completed_by_name",
             "consultation_type_display", "status_display", "created_at", "updated_at",
         )
@@ -401,6 +428,9 @@ class ConsultationSerializer(VersionedSerializer):
             "summary": {"required": True, "allow_blank": False},
             "status": {"required": True},
         }
+
+    def get_professional_name(self, consultation):
+        return consultation.professional.get_full_name().strip() or consultation.professional.email
 
     def get_completed_by_name(self, consultation):
         if not consultation.completed_by_id:
@@ -435,6 +465,7 @@ class ConsultationSerializer(VersionedSerializer):
         with transaction.atomic():
             consultation = super().create(validated_data)
             create_initial_odontogram_version(consultation)
+            record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, author=consultation.professional, reason="Creación de consulta")
             return consultation
 
     @transaction.atomic
@@ -445,7 +476,13 @@ class ConsultationSerializer(VersionedSerializer):
             raise serializers.ValidationError("La consulta cerrada es de solo lectura.")
         self.check_version(locked, validated_data)
         self.instance = locked
-        return super().update(self.instance, validated_data)
+        before = clinical_snapshot(locked)
+        record_revision(patient=locked.patient, instance=locked, consultation=locked, reason="Estado previo a la modificación")
+        result = super().update(self.instance, validated_data)
+        if before != clinical_snapshot(result):
+            request = self.context.get("request")
+            record_revision(patient=result.patient, instance=result, consultation=result, author=getattr(request, "user", None), reason="Edición de consulta en progreso")
+        return result
 
 
 class TreatmentItemServiceSerializer(serializers.ModelSerializer):

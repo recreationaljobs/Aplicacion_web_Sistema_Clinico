@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from apps.common.versioning import VersionedModel
+from apps.common.immutable import ImmutableModel
 
 from .documents import patient_document_path, private_document_storage
 from .identifiers import identification_key_expression
@@ -157,8 +158,6 @@ class ClinicalRecord(models.Model):
 
     examiner_name = models.CharField(max_length=200, blank=True)
     examiner_national_id = models.CharField(max_length=32, blank=True)
-    inss_number = models.CharField(max_length=40, blank=True)
-    cema_number = models.CharField(max_length=40, blank=True)
     consultation_date = models.DateField(null=True, blank=True)
     consultation_time = models.TimeField(null=True, blank=True)
     dental_service = models.CharField(max_length=200, blank=True)
@@ -192,25 +191,10 @@ class ClinicalRecord(models.Model):
 
     general_appearance = models.TextField(blank=True)
     skin_and_mucosa = models.TextField(blank=True)
-    thorax = models.TextField(blank=True)
-    rib_cage = models.TextField(blank=True)
-    breasts = models.TextField(blank=True)
-    lung_fields = models.TextField(blank=True)
-    cardiac = models.TextField(blank=True)
-    abdomen_pelvis = models.TextField(blank=True)
-    rectal_exam = models.TextField(blank=True)
-    musculoskeletal = models.TextField(blank=True)
-    upper_extremities = models.TextField(blank=True)
-    lower_extremities = models.TextField(blank=True)
-    genitourinary = models.TextField(blank=True)
-    gynecological_exam = models.TextField(blank=True)
-    neurological_exam = models.TextField(blank=True)
 
-    observations_analysis = models.TextField(blank=True)
     dental_diagnoses = models.TextField(blank=True)
     treatment_plan = models.TextField(blank=True)
     budget = models.TextField(blank=True)
-    treatment_performed = models.TextField(blank=True)
     radiographic_exams = models.JSONField(default=list, blank=True)
     clinical_photographs = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -261,18 +245,15 @@ class Consultation(VersionedModel):
         default=Status.COMPLETED,
     )
     examiner_national_id = models.CharField(max_length=32, blank=True)
-    inss_number = models.CharField(max_length=40, blank=True)
-    cema_number = models.CharField(max_length=40, blank=True)
     dental_service = models.CharField(max_length=200, blank=True)
     chief_complaint = models.TextField(blank=True)
-    present_illness_history = models.TextField(blank=True)
-    respiratory = models.TextField(blank=True)
-    cardiovascular = models.TextField(blank=True)
-    hepatic_renal = models.TextField(blank=True)
-    gastrointestinal = models.TextField(blank=True)
-    neurological = models.TextField(blank=True)
-    blood_system = models.TextField(blank=True)
-    reproductive_organs = models.TextField(blank=True)
+    respiratory = models.BooleanField(default=False)
+    cardiovascular = models.BooleanField(default=False)
+    hepatic_renal = models.BooleanField(default=False)
+    gastrointestinal = models.BooleanField(default=False)
+    neurological = models.BooleanField(default=False)
+    blood_system = models.BooleanField(default=False)
+    reproductive_organs = models.BooleanField(default=False)
     heart_rate = models.PositiveSmallIntegerField(null=True, blank=True)
     respiratory_rate = models.PositiveSmallIntegerField(null=True, blank=True)
     blood_pressure = models.CharField(max_length=20, blank=True)
@@ -283,24 +264,9 @@ class Consultation(VersionedModel):
     bmi = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     general_appearance = models.TextField(blank=True)
     skin_and_mucosa = models.TextField(blank=True)
-    thorax = models.TextField(blank=True)
-    rib_cage = models.TextField(blank=True)
-    breasts = models.TextField(blank=True)
-    lung_fields = models.TextField(blank=True)
-    cardiac = models.TextField(blank=True)
-    abdomen_pelvis = models.TextField(blank=True)
-    rectal_exam = models.TextField(blank=True)
-    musculoskeletal = models.TextField(blank=True)
-    upper_extremities = models.TextField(blank=True)
-    lower_extremities = models.TextField(blank=True)
-    genitourinary = models.TextField(blank=True)
-    gynecological_exam = models.TextField(blank=True)
-    neurological_exam = models.TextField(blank=True)
-    observations_analysis = models.TextField(blank=True)
     dental_diagnoses = models.TextField(blank=True)
     treatment_plan = models.TextField(blank=True)
     budget = models.TextField(blank=True)
-    treatment_performed = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -401,7 +367,7 @@ class TreatmentItem(VersionedModel):
         valid_teeth = PERMANENT_TEETH | PRIMARY_TEETH
         if self.tooth_code and self.tooth_code not in valid_teeth:
             errors["tooth_code"] = "Indica una pieza válida en formato FDI."
-        if not isinstance(self.surfaces, list):
+        if not isinstance(self.surfaces, list) or any(not isinstance(surface, str) for surface in self.surfaces):
             errors["surfaces"] = "Las superficies deben enviarse como una lista."
         elif not self.tooth_code and self.surfaces:
             errors["surfaces"] = "No se pueden indicar superficies sin una pieza dental."
@@ -539,3 +505,33 @@ class PatientDocument(models.Model):
 
     def __str__(self):
         return f"{self.original_name} · {self.patient}"
+
+
+class ClinicalRevision(ImmutableModel):
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="clinical_revisions")
+    consultation = models.ForeignKey(Consultation, on_delete=models.PROTECT, null=True, blank=True, related_name="clinical_revisions")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name="clinical_revisions")
+    author_name = models.CharField(max_length=255, blank=True)
+    resource_version = models.PositiveIntegerField()
+    snapshot = models.JSONField()
+    reason = models.CharField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)
+        constraints = [
+            models.UniqueConstraint(fields=("patient", "resource_version"), condition=models.Q(consultation__isnull=True), name="clinical_record_revision_uniq"),
+            models.UniqueConstraint(fields=("consultation", "resource_version"), condition=models.Q(consultation__isnull=False), name="consultation_revision_uniq"),
+        ]
+
+
+class ConsultationAmendment(ImmutableModel):
+    consultation = models.ForeignKey(Consultation, on_delete=models.PROTECT, related_name="amendments")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="consultation_amendments")
+    author_name = models.CharField(max_length=255)
+    reason = models.CharField(max_length=1000)
+    content = models.TextField(max_length=10000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at", "id")

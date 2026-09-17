@@ -57,7 +57,8 @@ describe('MyProfilePage', () => {
     expect(screen.getByText('Odontólogo')).toBeInTheDocument()
     expect(screen.getByText('Endodoncia')).toBeInTheDocument()
     expect(screen.getByText('REG-2048')).toBeInTheDocument()
-    expect(screen.queryByLabelText('Especialidad')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Especialidad')).toHaveValue('Endodoncia')
+    expect(screen.getByLabelText('Código MINSA')).toHaveValue('REG-2048')
     expect(screen.queryByLabelText('Contraseña actual')).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Correo electrónico'), {
@@ -68,12 +69,14 @@ describe('MyProfilePage', () => {
   })
 
   it('saves changed data and synchronizes the authenticated session', async () => {
-    const saved = { ...profile, first_name: 'Elena María', email: 'nueva@dentalclinic.com' }
+    const saved = { ...profile, first_name: 'Elena María', specialty: 'Implantología', professional_registration_number: '9669', email: 'nueva@dentalclinic.com' }
     userService.updateCurrentProfile.mockResolvedValue(saved)
     renderPage()
     await screen.findByDisplayValue('Elena')
 
     fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Elena María' } })
+    fireEvent.change(screen.getByLabelText('Especialidad'), { target: { value: saved.specialty } })
+    fireEvent.change(screen.getByLabelText('Código MINSA'), { target: { value: saved.professional_registration_number } })
     fireEvent.change(screen.getByLabelText('Correo electrónico'), { target: { value: saved.email } })
     fireEvent.change(screen.getByLabelText('Contraseña actual'), {
       target: { value: 'ContraseñaPerfil123!' },
@@ -86,6 +89,8 @@ describe('MyProfilePage', () => {
         first_name: 'Elena María',
         last_name: 'Vargas',
         phone: '+505 8888 1111',
+        specialty: 'Implantología',
+        professional_registration_number: '9669',
         email: 'nueva@dentalclinic.com',
         current_password: 'ContraseñaPerfil123!',
       },

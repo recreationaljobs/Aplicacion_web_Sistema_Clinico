@@ -57,7 +57,7 @@ describe('SettingsPage staff management', () => {
     clinicService.listClosures.mockResolvedValue([])
     clinicService.listServiceCategories.mockResolvedValue([])
     clinicService.listClinicServices.mockResolvedValue([])
-    clinicService.updateClinicProfile.mockResolvedValue({ name: 'Clínica Argüello', tagline: '', phone: '', email: '', address: '', logo_url: '', currency: 'NIO', timezone: 'America/Managua' })
+    clinicService.updateClinicProfile.mockResolvedValue({ name: 'Clínica Argüello', phone: '', email: '', address: '', logo_url: '', currency: 'NIO', timezone: 'America/Managua' })
     userService.listUsers.mockResolvedValue([])
     userService.createUser.mockResolvedValue({
       id: 2,
@@ -112,7 +112,20 @@ describe('SettingsPage staff management', () => {
     expect(screen.getByRole('button', { name: /Perfil de la clínica/ })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('button', { name: /Gestión de Staff/ })).not.toHaveAttribute('aria-current')
     expect(await screen.findByRole('heading', { name: 'Perfil de la clínica' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Subtítulo')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Gestión de Staff' })).not.toBeInTheDocument()
+  })
+
+  it('saves the clinic profile without a tagline field', async () => {
+    renderPage()
+    await screen.findByRole('heading', { name: 'Perfil de la clínica' })
+    fireEvent.change(screen.getByLabelText('Nombre de la clínica'), { target: { value: 'Clínica Argüello' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Perfil de la clínica actualizado.')
+    const [, payload] = clinicService.updateClinicProfile.mock.calls.at(-1)
+    expect(payload.get('name')).toBe('Clínica Argüello')
+    expect(payload.has('tagline')).toBe(false)
   })
 
   it('opens staff in Activos and shows its specific empty state', async () => {
@@ -534,11 +547,11 @@ describe('SettingsPage staff management', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Editar a Elena Méndez' }))
     expect(screen.getByLabelText('Especialidad')).toHaveValue('Endodoncia')
-    expect(screen.getByLabelText('Número de registro profesional')).toHaveValue('REG-2048')
+    expect(screen.getByLabelText('Código MINSA')).toHaveValue('REG-2048')
 
     fireEvent.change(screen.getByLabelText('Rol'), { target: { value: 'RECEPCIONISTA' } })
     expect(screen.queryByLabelText('Especialidad')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Número de registro profesional')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Código MINSA')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(userService.updateUser).toHaveBeenCalledWith(
@@ -569,7 +582,7 @@ describe('SettingsPage staff management', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Editar a Elena Méndez' }))
     fireEvent.change(screen.getByLabelText('Especialidad'), { target: { value: '' } })
-    fireEvent.change(screen.getByLabelText('Número de registro profesional'), {
+    fireEvent.change(screen.getByLabelText('Código MINSA'), {
       target: { value: '' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
@@ -590,11 +603,11 @@ describe('SettingsPage staff management', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Añadir miembro' }))
 
     expect(screen.getByLabelText('Especialidad')).toHaveValue('')
-    expect(screen.getByLabelText('Número de registro profesional')).toHaveValue('')
+    expect(screen.getByLabelText('Código MINSA')).toHaveValue('')
     fireEvent.change(screen.getByLabelText('Especialidad'), {
       target: { value: 'Odontopediatría' },
     })
-    fireEvent.change(screen.getByLabelText('Número de registro profesional'), {
+    fireEvent.change(screen.getByLabelText('Código MINSA'), {
       target: { value: 'MINSA 7788' },
     })
     fillForm()

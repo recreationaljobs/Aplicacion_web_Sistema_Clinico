@@ -21,7 +21,11 @@ def csv_required(name):
 def https_url(name):
     value = required(name)
     parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.netloc:
+    if (
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username or parsed.password or "*" in parsed.netloc
+        or parsed.query or parsed.fragment
+    ):
         raise ImproperlyConfigured(f"La variable {name} debe contener una URL HTTPS.")
     return value
 
@@ -29,16 +33,23 @@ def https_url(name):
 def https_origins(name, required_value=False):
     raw_value = required(name) if required_value else os.getenv(name, "").strip()
     origins = [item.strip() for item in raw_value.split(",") if item.strip()]
-    if any(urlparse(origin).scheme != "https" or not urlparse(origin).netloc for origin in origins):
+    if any(
+        parsed.scheme != "https" or not parsed.hostname
+        or parsed.username or parsed.password or "*" in parsed.netloc
+        or parsed.path or parsed.query or parsed.fragment
+        for parsed in map(urlparse, origins)
+    ):
         raise ImproperlyConfigured(f"La variable {name} sólo admite orígenes HTTPS.")
     return origins
 
 
 SECRET_KEY = required("DJANGO_SECRET_KEY")
+if len(SECRET_KEY) < 50 or len(set(SECRET_KEY)) < 5 or SECRET_KEY.startswith("django-insecure-") or SECRET_KEY in {"replace-with-a-secret-manager-value", "replace-me"}:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY debe ser una clave fuerte y exclusiva de producción.")
 DEBUG = False
 REQUIRE_EDIT_VERSION = True
 ALLOWED_HOSTS = csv_required("ALLOWED_HOSTS")
-if "*" in ALLOWED_HOSTS:
+if any("*" in host or "/" in host or "@" in host for host in ALLOWED_HOSTS):
     raise ImproperlyConfigured("ALLOWED_HOSTS no puede contener comodines en producción.")
 CSRF_TRUSTED_ORIGINS = https_origins("CSRF_TRUSTED_ORIGINS", required_value=True)
 FRONTEND_URL = https_url("FRONTEND_URL")
@@ -53,11 +64,12 @@ database = dj_database_url.parse(
 if database["ENGINE"] != "django.db.backends.postgresql":
     raise ImproperlyConfigured("DATABASE_URL debe utilizar PostgreSQL en producción.")
 DATABASES = {"default": database}
+database.setdefault("OPTIONS", {}).setdefault("connect_timeout", 3)
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": required("REDIS_URL"),
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient", "SOCKET_CONNECT_TIMEOUT": 3, "SOCKET_TIMEOUT": 3},
         "TIMEOUT": 900,
     }
 }
@@ -68,6 +80,7 @@ EMAIL_PORT = int(required("EMAIL_PORT"))
 EMAIL_HOST_USER = required("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = required("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = True
+EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = required("DEFAULT_FROM_EMAIL")
 
 AWS_STORAGE_BUCKET_NAME = required("AWS_STORAGE_BUCKET_NAME")

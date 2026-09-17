@@ -37,7 +37,7 @@ export default function ConsultationFollowUpSection({
     className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm sm:p-6 lg:col-span-2"
   >
     <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700">Continuidad clínica</p>
-    <h2 id="consultation-follow-up-title" className="mt-1 font-serif text-2xl font-semibold text-slate-900">Atención completada</h2>
+    <h2 id="consultation-follow-up-title" className="mt-1 font-sans text-2xl font-semibold text-slate-900">Atención completada</h2>
     <h3 className="mt-5 text-base font-semibold text-slate-800">Tratamientos pendientes</h3>
     {pendingItems.length > 0 ? <fieldset className="mt-3 space-y-3">
       <legend className="sr-only">Contexto para la próxima cita</legend>

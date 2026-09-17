@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Dialog from '../../components/Dialog'
 import {
   FINDING_LABELS,
   SURFACE_LABELS,
@@ -59,9 +60,8 @@ export default function TreatmentResultDialog({ item, pending, requestError, onC
     })
   }
 
-  return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
-    <section role="dialog" aria-modal="true" aria-labelledby="treatment-result-title" className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-      <h2 id="treatment-result-title" className="font-serif text-2xl font-semibold text-slate-900">Realizar tratamiento</h2>
+  return <Dialog onClose={pending ? undefined : onCancel} aria-labelledby="treatment-result-title" className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+      <h2 id="treatment-result-title" className="font-sans text-2xl font-semibold text-slate-900">Realizar tratamiento</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">Confirma cómo quedará documentado “{item.description}”.</p>
       <fieldset className="mt-5 space-y-3">
         <legend className="text-xs font-bold uppercase tracking-wide text-slate-500">Registro clínico</legend>
@@ -97,6 +97,5 @@ export default function TreatmentResultDialog({ item, pending, requestError, onC
         <button type="button" onClick={onCancel} disabled={pending} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50">Volver</button>
         <button type="button" onClick={confirm} disabled={pending} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{pending ? 'Realizando…' : 'Confirmar realización'}</button>
       </div>
-    </section>
-  </div>
+  </Dialog>
 }

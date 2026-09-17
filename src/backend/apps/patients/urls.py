@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import PatientDocumentRestoreView
+from .traceability_api import ClinicalRevisionListView, ConsultationRevisionListView, ConsultationAmendmentListCreateView
 
 from .views import (
     ConsultationOdontogramView,
@@ -35,6 +36,9 @@ app_name = "patients"
 
 
 urlpatterns = [
+    path("<int:patient_pk>/clinical-record/revisions/", ClinicalRevisionListView.as_view(), name="clinical-record-revisions"),
+    path("<int:patient_pk>/consultations/<int:consultation_pk>/revisions/", ConsultationRevisionListView.as_view(), name="consultation-revisions"),
+    path("<int:patient_pk>/consultations/<int:consultation_pk>/amendments/", ConsultationAmendmentListCreateView.as_view(), name="consultation-amendments"),
     path(
         "<int:patient_pk>/documents/<int:pk>/restore/",
         PatientDocumentRestoreView.as_view(), name="patient-document-restore",

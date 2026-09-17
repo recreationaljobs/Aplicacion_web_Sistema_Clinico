@@ -55,6 +55,7 @@ class ClinicConfigurationApiTests(APITestCase):
         self.client.force_authenticate(self.receptionist)
         response = self.client.get(self.profile_url)
         self.assertEqual(response.status_code, 200)
+        self.assertNotIn("tagline", response.data)
         self.assertEqual(response.data["name"], "DentalClinic")
         self.assertEqual(response.data["currency"], "NIO")
         self.assertEqual(response.data["timezone"], "America/Managua")
@@ -67,7 +68,6 @@ class ClinicConfigurationApiTests(APITestCase):
             self.profile_url,
             {
                 "name": "Clínica Argüello",
-                "tagline": "Sonrisas saludables",
                 "phone": "+505 2222 3333",
                 "email": "contacto@arguello.com",
                 "address": "Managua, Nicaragua",
@@ -77,6 +77,7 @@ class ClinicConfigurationApiTests(APITestCase):
             format="json",
         )
         self.assertEqual(updated.status_code, 200)
+        self.assertNotIn("tagline", updated.data)
         self.assertEqual(updated.data["name"], "Clínica Argüello")
         self.assertEqual(updated.data["currency"], "USD")
 
@@ -101,6 +102,8 @@ class ClinicConfigurationApiTests(APITestCase):
 
         profile = self.client.get(self.profile_url)
         self.assertTrue(profile.data["schedule_configured"])
+        reloaded = self.client.get(self.hours_url)
+        self.assertEqual(reloaded.json(), response.json())
 
     def test_hours_reject_overlapping_breaks(self):
         payload = self.hours_payload()

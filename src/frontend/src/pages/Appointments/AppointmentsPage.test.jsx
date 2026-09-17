@@ -22,6 +22,7 @@ vi.mock('../../services/appointmentService', async (importOriginal) => ({
   startAppointmentAttendance: vi.fn(),
   updateAppointment: vi.fn(),
   checkInAppointment: vi.fn(),
+  undoCheckInAppointment: vi.fn(),
   listAppointmentReschedules: vi.fn(),
 }))
 vi.mock('../../services/patientService', async (importOriginal) => ({
@@ -146,6 +147,34 @@ function renderClinicalFlow(user) {
 }
 
 describe('AppointmentsPage', () => {
+  it('sends the displayed version when confirming a booking', async () => {
+    appointmentService.listAllAppointments.mockResolvedValue([appointment({ version: 7 })])
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar cita' }))
+    await waitFor(() => expect(appointmentService.updateAppointment).toHaveBeenCalledWith(
+      'access-token', 9, { status: 'CONFIRMADA', expected_version: 7 },
+    ))
+  })
+
+  it('corrects an arrival with a reason and its current version', async () => {
+    appointmentService.listAllAppointments.mockResolvedValue([
+      appointment({ status: 'PRESENTE', status_display: 'Presente', version: 8 }),
+    ])
+    appointmentService.undoCheckInAppointment.mockResolvedValue(appointment({ version: 9 }))
+    renderPage()
+    fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Corregir llegada' }))
+    fireEvent.change(screen.getByLabelText('Motivo de corrección de llegada'), {
+      target: { value: 'Se seleccionó otra cita' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar corrección' }))
+    await waitFor(() => expect(appointmentService.undoCheckInAppointment).toHaveBeenCalledWith(
+      'access-token', 9, { reason: 'Se seleccionó otra cita', expected_version: 8 },
+    ))
+    expect(await screen.findByText('Llegada corregida.')).toBeInTheDocument()
+  })
+
   beforeEach(() => {
     listClinicServices.mockResolvedValue([])
     appointmentService.listAllAppointments.mockResolvedValue([appointment()])
@@ -324,16 +353,16 @@ describe('AppointmentsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Nueva cita' }))
     const dialog = screen.getByRole('dialog', { name: 'Nueva cita' })
-    fireEvent.change(within(dialog).getByLabelText('Buscar paciente'), {
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Paciente' }), {
       target: { value: 'Ana' },
     })
     await waitFor(() => expect(searchPatientOptions).toHaveBeenCalledWith(
       'access-token', 'Ana', expect.any(AbortSignal),
     ))
     await waitFor(() => expect(
-      within(dialog).getByRole('option', { name: 'Ana Pérez · PAC-00001' }),
+      within(dialog).getByRole('option', { name: /Ana Pérez.*PAC-00001/ }),
     ).toBeInTheDocument())
-    fireEvent.change(within(dialog).getByLabelText('Paciente'), { target: { value: '1' } })
+    fireEvent.click(within(dialog).getByRole('option', { name: /Ana Pérez.*PAC-00001/ }))
     fireEvent.change(within(dialog).getByLabelText(/Servicio/), { target: { value: '4' } })
     expect(within(dialog).getByLabelText('Duración')).toHaveValue('45')
     expect(within(dialog).getByLabelText('Motivo')).toHaveValue('Control de ortodoncia')
@@ -367,7 +396,7 @@ describe('AppointmentsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Nueva cita' }))
     const appointmentDialog = screen.getByRole('dialog', { name: 'Nueva cita' })
-    fireEvent.change(within(appointmentDialog).getByLabelText('Buscar paciente'), {
+    fireEvent.change(within(appointmentDialog).getByRole('combobox', { name: 'Paciente' }), {
       target: { value: 'Sin resultado' },
     })
 
@@ -385,7 +414,7 @@ describe('AppointmentsPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Nueva cita' }))
     const appointmentDialog = screen.getByRole('dialog', { name: 'Nueva cita' })
-    fireEvent.change(within(appointmentDialog).getByLabelText('Buscar paciente'), {
+    fireEvent.change(within(appointmentDialog).getByRole('combobox', { name: 'Paciente' }), {
       target: { value: 'Sin resultado' },
     })
 
@@ -404,8 +433,8 @@ describe('AppointmentsPage', () => {
     renderFollowUpPage()
 
     const dialog = await screen.findByRole('dialog', { name: 'Nueva cita' })
-    await waitFor(() => expect(within(dialog).getByLabelText('Paciente')).toHaveValue('1'))
-    expect(within(dialog).getByRole('option', { name: 'Ana Pérez · PAC-00001' })).toBeInTheDocument()
+    await waitFor(() => expect(within(dialog).getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00001'))
+    expect(within(dialog).getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('Ana Pérez')
     expect(within(dialog).getByLabelText('Odontólogo')).toHaveValue('3')
     await waitFor(() => expect(within(dialog).getByLabelText(/Servicio/)).toHaveValue('4'))
     expect(within(dialog).getByLabelText('Duración')).toHaveValue('45')
@@ -492,13 +521,13 @@ describe('AppointmentsPage', () => {
     await screen.findByText('No hay citas programadas para este día.')
     fireEvent.click(screen.getByRole('button', { name: 'Nueva cita' }))
     const dialog = screen.getByRole('dialog', { name: 'Nueva cita' })
-    fireEvent.change(within(dialog).getByLabelText('Buscar paciente'), {
+    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Paciente' }), {
       target: { value: 'Ana' },
     })
     await waitFor(() => expect(
-      within(dialog).getByRole('option', { name: 'Ana Pérez · PAC-00001' }),
+      within(dialog).getByRole('option', { name: /Ana Pérez.*PAC-00001/ }),
     ).toBeInTheDocument())
-    fireEvent.change(within(dialog).getByLabelText('Paciente'), { target: { value: '1' } })
+    fireEvent.click(within(dialog).getByRole('option', { name: /Ana Pérez.*PAC-00001/ }))
     await waitFor(() => expect(within(dialog).getByLabelText('Odontólogo').options.length).toBe(2))
     fireEvent.change(within(dialog).getByLabelText('Odontólogo'), { target: { value: '3' } })
     fireEvent.change(within(dialog).getByLabelText('Motivo'), { target: { value: 'Control' } })

@@ -8,6 +8,7 @@ import {
   listAppointmentReschedules,
   startAppointmentAttendance,
   updateAppointment,
+  undoCheckInAppointment,
 } from '../../services/appointmentService'
 import { listClinicServices } from '../../services/clinicService'
 import { useClinic } from '../../context/clinicContextValue'
@@ -153,7 +154,10 @@ export default function AppointmentsPage() {
 
   const saveAppointment = async (values) => {
     const saved = formAppointment
-      ? await updateAppointment(accessToken, formAppointment.id, values)
+      ? await updateAppointment(accessToken, formAppointment.id, {
+        ...values,
+        ...(formAppointment.version ? { expected_version: formAppointment.version } : {}),
+      })
       : await createAppointment(accessToken, values)
     setSelectedDate(saved.date)
     setAppointments((current) => {
@@ -169,7 +173,10 @@ export default function AppointmentsPage() {
   }
 
   const changeStatus = async (status, extra = {}) => {
-    const saved = await updateAppointment(accessToken, selectedAppointment.id, { status, ...extra })
+    const saved = await updateAppointment(accessToken, selectedAppointment.id, {
+      status, ...extra,
+      ...(selectedAppointment.version ? { expected_version: selectedAppointment.version } : {}),
+    })
     setAppointments((current) => current.map((item) => item.id === saved.id ? saved : item))
     setSelectedAppointment(saved)
     const messages = {
@@ -218,6 +225,15 @@ export default function AppointmentsPage() {
     navigateTo(`/pacientes/${selectedAppointment.patient}`)
   }
 
+  const undoSelectedCheckIn = async (reason) => {
+    const saved = await undoCheckInAppointment(accessToken, selectedAppointment.id, {
+      reason, expected_version: selectedAppointment.version,
+    })
+    setAppointments((current) => current.map((item) => item.id === saved.id ? saved : item))
+    setSelectedAppointment(saved)
+    setToast('Llegada corregida.')
+  }
+
   const continueSelectedAttendance = () => {
     navigateTo(
       `/pacientes/${selectedAppointment.patient}/consultas/${selectedAppointment.consultation}`,
@@ -241,7 +257,7 @@ export default function AppointmentsPage() {
     <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Agenda clínica</p>
-        <h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight text-slate-900">Citas</h1>
+        <h1 className="mt-1 font-sans text-4xl font-semibold tracking-tight text-slate-900">Citas</h1>
         <p className="mt-2 text-sm text-slate-500">Organiza la atención y revisa la disponibilidad del equipo.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -256,7 +272,7 @@ export default function AppointmentsPage() {
 
     <section className="mt-8">
       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div><h2 className="font-serif text-2xl font-semibold text-slate-900">{calendarTitle(calendarView, selectedDate)}</h2><p className="mt-1 text-xs text-slate-500">{appointments.length} {appointments.length === 1 ? 'cita en el periodo' : 'citas en el periodo'}</p></div>
+        <div><h2 className="font-sans text-2xl font-semibold text-slate-900">{calendarTitle(calendarView, selectedDate)}</h2><p className="mt-1 text-xs text-slate-500">{appointments.length} {appointments.length === 1 ? 'cita en el periodo' : 'citas en el periodo'}</p></div>
         <div role="group" aria-label="Vista de calendario" className="inline-flex w-fit rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           {[['day', 'Día'], ['week', 'Semana'], ['month', 'Mes']].map(([value, label]) => <button
             key={value}
@@ -305,6 +321,7 @@ export default function AppointmentsPage() {
       onCompletePatientProfile={openSelectedPatient}
       onStartAttendance={startSelectedAttendance}
       onCheckIn={checkInSelected}
+      onUndoCheckIn={undoSelectedCheckIn}
       onContinueAttendance={continueSelectedAttendance}
       rescheduleHistory={rescheduleHistory}
       rescheduleHistoryLoading={rescheduleHistoryLoading}

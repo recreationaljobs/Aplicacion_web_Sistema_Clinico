@@ -5,12 +5,14 @@ from rest_framework.test import APITestCase
 from apps.appointments.models import Appointment
 from apps.clinics.models import ClinicService, ServiceCategory
 from apps.users.models import User
+from apps.common.test_utils import open_clinic_days
 
 from .models import Consultation, Patient, TreatmentItem
 
 
 class FollowUpContinuityApiTests(APITestCase):
     def setUp(self):
+        open_clinic_days()
         self.admin = User.objects.create_user(
             email="admin-follow-up@example.test",
             password="SyntheticOnly123!",

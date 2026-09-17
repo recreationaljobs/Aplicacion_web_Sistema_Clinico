@@ -1,5 +1,7 @@
 # HU-18 — Programación y gestión de citas
 
+> Los ensayos de navegador anteriores se conservan como evidencia histórica, no como comandos ejecutables actuales. Las suites vigentes y el smoke reproducible están en [preparación para producción](../production-readiness.md).
+
 **Jira:** SCRUM-26
 
 **Historia:** Como recepcionista, quiero programar una cita, para organizar la agenda de atención.
@@ -51,6 +53,39 @@ npm test
 npm run lint
 npm run build
 ```
+
+### Corrección de horario de clínica — 16 de septiembre de 2026
+
+- Un día cerrado bloquea creación y disponibilidad también antes del primer guardado de horarios. Regresiones reproducidas inicialmente con HTTP 201/200 indebidos; después de la corrección ambos flujos devuelven HTTP 400.
+- Las citas existentes de un día cerrado pueden cancelarse para resolver el conflicto. El formulario de horarios muestra las citas afectadas y orienta a reprogramarlas o cancelarlas, sin descartarlas automáticamente.
+- Guardado/recarga de horas y comparación HH:MM/HH:MM:SS verificados; evidencia y limitación de la suite PostgreSQL aislada en [Configuración operativa](../clinic-configuration.md#corrección-de-horarios-del-16-de-septiembre-de-2026).
+
+### Avisos visibles en el formulario — 16 de septiembre de 2026
+
+- El modal separa los campos con scroll propio de la cabecera y el pie de acciones. Los avisos de disponibilidad y guardado permanecen junto a Programar cita/Guardar cambios, visibles también al bajar por el formulario.
+- Un día cerrado muestra la fecha con su día de la semana y orienta a cambiar fecha/hora; el botón permanece deshabilitado durante la consulta y cuando no hay disponibilidad. Editar paciente, motivo o notas conserva el aviso.
+- Una consulta fallida retira odontólogos de la disponibilidad anterior y limpia la selección obsoleta. Una fecha disponible permite continuar manteniendo paciente y motivo; los errores del POST conservan los datos en el modal.
+- Cuatro regresiones nuevas fallaban antes de la corrección. Después pasan las 51 pruebas de AppointmentFormPanel, AppointmentsPage y ConsultationFollowUpSection. Chromium verifica aviso y botón siempre visibles durante scroll, sábado bloqueado y cambio a lunes con creación simulada, en 1280×900 y 390×844.
+- Comandos: `npm test -- src/pages/Appointments/AppointmentFormPanel.test.jsx src/pages/Appointments/AppointmentsPage.test.jsx src/pages/Patients/ConsultationFollowUpSection.test.jsx`; **evidencia histórica de navegador (script puntual retirado)**; `npm run lint`, `npm run build`, `git diff --check` correctos. Solo cambia la interfaz; no requiere migración.
+
+### Selección directa de paciente — 16 de septiembre de 2026
+
+- Nueva cita y Editar cita sustituyen búsqueda más selector por un único campo con resultados seleccionables debajo. Cada resultado identifica nombre, código y teléfono; las búsquedas siguen usando la API remota con debounce y cancelación.
+- Un error al escribir se corrige en el mismo campo. Flechas y Enter seleccionan; Escape cierra primero los resultados. La selección muestra un resumen con Cambiar paciente, que elimina el ID anterior y devuelve el foco al buscador sin alterar los demás datos.
+- Escribir sin seleccionar no permite guardar. Se conservan alta rápida por permiso, perfiles incompletos seleccionables y precarga desde seguimiento clínico. No hay cambios de modelo ni migraciones.
+- Evidencia: 68 pruebas correctas en PatientSearchField, AppointmentFormPanel, AppointmentsPage, PatientQuickCreateDialog y ConsultationFollowUpSection; lint y build correctos. Chromium verifica corrección de nombre, búsqueda por teléfono, selección con teclado/clic, cambio de paciente y creación simulada en 1280×900 y 390×844 mediante **el ensayo histórico de navegador, cuyo script puntual fue retirado**.
+- Comando: `npm test -- src/pages/Appointments/PatientSearchField.test.jsx src/pages/Appointments/AppointmentFormPanel.test.jsx src/pages/Appointments/AppointmentsPage.test.jsx src/pages/Appointments/PatientQuickCreateDialog.test.jsx src/pages/Patients/ConsultationFollowUpSection.test.jsx`.
+
+### Simplificación de Nueva cita — 16 de septiembre de 2026
+
+Nueva cita omite el campo Notas. El cambio afecta únicamente al formulario de creación; las notas existentes y su edición se conservan. La regresión comprueba la ausencia del campo al abrir Nueva cita y las suites de formulario/agenda verifican el guardado.
+
+### Scroll de agenda diaria — 16 de septiembre de 2026
+
+- Reproducción: la agenda tenía 923 px de alto visible y 931 px de contenido. Su scroll vertical accidental consumía el primer movimiento de rueda (8 px), antes de desplazar la página; al invertir la dirección ocurría lo mismo.
+- El cuerpo de la agenda reserva 32 px adicionales para la última etiqueta de hora y las tarjetas compactas. Se conserva la escala horaria, la posición de las citas, el desplazamiento horizontal y la navegación fija. El diseño móvil mantiene su altura automática.
+- Regresión Chromium: **el ensayo histórico de navegador, cuyo script puntual fue retirado** falló antes del ajuste por el overflow de 8 px. Después verifica desplazamiento inmediato hacia abajo/arriba sin scroll interno, última hora completa, seis columnas con scroll horizontal, cita de 15 minutos al final del día y lista móvil con ocho citas. Viewports: 1645×1030, 1280×900 y 390×844. Todos los datos API son ficticios; no escribe en la base de desarrollo.
+- Verificación: 31 pruebas correctas de AppointmentsPage y appointmentDisplay; Oxlint y build correctos. Comandos: `npm test -- src/pages/Appointments/AppointmentsPage.test.jsx src/pages/Appointments/appointmentDisplay.test.js`; **evidencia histórica de navegador (script puntual retirado)**; `npm run lint`; `npm run build`.
 
 ## Fuera de alcance
 

@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from apps.users.models import User
 
 from .models import BusinessHour, ClinicProfile, ClinicService, HolidayClosure, ServiceCategory
+from .locking import serialized_schedule
 from .availability import conflict_validation_error, future_appointment_conflicts
 from .serializers import (
     BusinessHoursSerializer,
@@ -33,6 +34,7 @@ class ClinicProfileView(APIView):
     def get(self, request):
         return Response(ClinicProfileSerializer(ClinicProfile.load(), context={"request": request}).data)
 
+    @serialized_schedule()
     def patch(self, request):
         serializer = ClinicProfileSerializer(
             ClinicProfile.load(), data=request.data, partial=True, context={"request": request},
@@ -60,6 +62,7 @@ class BusinessHoursView(APIView):
     def get(self, request):
         return Response(serialize_business_hours(BusinessHour.objects.prefetch_related("breaks")))
 
+    @serialized_schedule()
     def put(self, request):
         serializer = BusinessHoursSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -75,6 +78,7 @@ class HolidayClosureListCreateView(generics.ListCreateAPIView):
     serializer_class = HolidayClosureSerializer
     permission_classes = (IsAuthenticated, IsAdministratorOrReadOnly)
 
+    @serialized_schedule()
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -91,6 +95,7 @@ class HolidayClosureDetailView(generics.UpdateAPIView):
     permission_classes = (IsAuthenticated, IsAdministratorOrReadOnly)
     http_method_names = ("patch", "head", "options")
 
+    @serialized_schedule()
     def update(self, request, *args, **kwargs):
         current = self.get_object()
         serializer = self.get_serializer(current, data=request.data, partial=True)
@@ -133,6 +138,13 @@ class ClinicServiceListCreateView(generics.ListCreateAPIView):
         if active in ("true", "false"):
             queryset = queryset.filter(is_active=active == "true")
         if category:
+            try:
+                category = int(category)
+                if category < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({"category": "Indica un identificador entero positivo."})
             queryset = queryset.filter(category_id=category)
         return queryset
 

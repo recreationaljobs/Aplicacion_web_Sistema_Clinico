@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBeforeUnload, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import ClinicalAlertsBanner from '../../components/ClinicalAlertsBanner'
 import PatientDuplicateDialog from '../../components/PatientDuplicateDialog'
+import ClinicalHistoryPanel from './ClinicalHistoryPanel'
+import { cedulaPattern, formatCedula } from '../../utils/identification'
 import { useAuth } from '../../context/authContextValue'
 import {
   checkPatientDuplicates,
@@ -62,6 +64,9 @@ function formFromPatient(patient) {
     values[field] = Array.isArray(value) ? value.join('\n') : (value === null || value === undefined ? '' : String(value))
   })
   values.infectious_diseases = record.infectious_diseases || {}
+  if (values.identification_type === 'CEDULA') {
+    values.identification_number = formatCedula(values.identification_number)
+  }
   values.hereditary_diseases = record.hereditary_diseases || {}
   return values
 }
@@ -103,6 +108,8 @@ function RecordValue({
   type = 'text',
   required = false,
   maxLength,
+  pattern,
+  placeholder,
   options = [],
   ariaLabel,
 }) {
@@ -111,7 +118,7 @@ function RecordValue({
       <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}{required ? <span className="text-blue-700"> *</span> : null}</span>
       {type === 'textarea' ? <textarea aria-label={label} name={field} value={form[field] ?? ''} onChange={onChange} rows="2" maxLength={maxLength} placeholder="Sin información registrada" className={`${inputClass} resize-none focus:resize-y`} /> : null}
       {type === 'select' ? <select aria-label={ariaLabel || label} name={field} value={form[field] ?? ''} onChange={onChange} required={required} className={inputClass}><option value="">Sin información registrada</option>{options.map(({ value: optionValue, label: optionLabel }) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}</select> : null}
-      {type !== 'textarea' && type !== 'select' ? <input aria-label={ariaLabel || label} name={field} value={form[field] ?? ''} onChange={onChange} type={type} step={type === 'number' ? 'any' : undefined} required={required} placeholder={type === 'date' || type === 'time' ? undefined : 'Sin información registrada'} className={inputClass} /> : null}
+      {type !== 'textarea' && type !== 'select' ? <input aria-label={ariaLabel || label} name={field} value={form[field] ?? ''} onChange={onChange} type={type} step={type === 'number' ? 'any' : undefined} required={required} pattern={pattern} title={pattern ? 'Formato: 281-090403-1006K' : undefined} placeholder={placeholder || (type === 'date' || type === 'time' ? undefined : 'Sin información registrada')} className={inputClass} /> : null}
     </label>
   }
   const display = value === '' || value === null || value === undefined ? 'Sin información registrada' : value
@@ -123,7 +130,7 @@ function DataGrid({ items, form, canModify, onChange, columns = 'sm:grid-cols-2'
 }
 
 function SectionCard({ title, children, wide = false, ariaLabel, highlighted = false }) {
-  return <section aria-label={ariaLabel} className={`rounded-2xl border bg-white p-5 shadow-sm ${highlighted ? 'border-amber-300 ring-2 ring-amber-50' : 'border-slate-200'} ${wide ? 'lg:col-span-2' : ''}`}><h2 className="font-serif text-xl font-semibold text-slate-900">{title}</h2><div className="mt-5">{children}</div></section>
+  return <section aria-label={ariaLabel} className={`rounded-2xl border bg-white p-5 shadow-sm ${highlighted ? 'border-amber-300 ring-2 ring-amber-50' : 'border-slate-200'} ${wide ? 'lg:col-span-2' : ''}`}><h2 className="font-sans text-xl font-semibold text-slate-900">{title}</h2><div className="mt-5">{children}</div></section>
 }
 
 function duplicateCandidateFromForm(form) {
@@ -179,6 +186,8 @@ export default function PatientRecordPage({ isNew = false }) {
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  const [clinicalReason, setClinicalReason] = useState('')
+  const clinicalDirty = !isNew && JSON.stringify(payloadFromForm(form).clinical_record) !== JSON.stringify(payloadFromForm(baselineForm).clinical_record)
   const [duplicateMatches, setDuplicateMatches] = useState([])
   const canViewTreatments = user.role === 'ADMINISTRADOR' || user.permissions?.includes('consultations.view')
   const canExport = !isNew && (
@@ -210,12 +219,18 @@ export default function PatientRecordPage({ isNew = false }) {
 
   useEffect(() => { allowNavigationRef.current = false }, [id, isNew])
 
-  const update = ({ target }) => setForm((current) => ({
-    ...current,
-    [target.name]: target.name === 'is_active'
-      ? target.value === 'true'
-      : (target.type === 'checkbox' ? target.checked : target.value),
-  }))
+  const update = ({ target }) => setForm((current) => {
+    const next = {
+      ...current,
+      [target.name]: target.name === 'is_active'
+        ? target.value === 'true'
+        : (target.type === 'checkbox' ? target.checked : target.value),
+    }
+    if (next.identification_type === 'CEDULA' && ['identification_type', 'identification_number'].includes(target.name)) {
+      next.identification_number = formatCedula(next.identification_number)
+    }
+    return next
+  })
   const updateDisease = (group, name, value) => setForm((current) => ({ ...current, [group]: { ...current[group], [name]: value } }))
   const canCreate = user.role === 'ADMINISTRADOR' || user.permissions?.includes('patients.create')
   const canEdit = user.role === 'ADMINISTRADOR' || user.permissions?.includes('patients.edit')
@@ -240,12 +255,14 @@ export default function PatientRecordPage({ isNew = false }) {
       return
     }
     setForm(baselineForm)
+    setClinicalReason('')
     setError('')
     setDuplicateMatches([])
     pendingPatientPayloadRef.current = null
   }
 
   const persistPatient = async (payload) => {
+    if (clinicalDirty) payload = { ...payload, clinical_change_reason: clinicalReason.trim() }
     const saved = isNew
       ? await createPatient(accessToken, payload)
       : await updatePatient(accessToken, id, { ...payload, expected_version: patient.version })
@@ -253,6 +270,7 @@ export default function PatientRecordPage({ isNew = false }) {
     setPatient(saved)
     setForm(savedForm)
     setBaselineForm(savedForm)
+    setClinicalReason('')
     pendingPatientPayloadRef.current = null
     if (isNew) {
       allowNavigationRef.current = true
@@ -280,6 +298,9 @@ export default function PatientRecordPage({ isNew = false }) {
     setSaving(true)
     setError('')
     const payload = payloadFromForm(form)
+    if (clinicalDirty && !clinicalReason.trim()) {
+      setError('Indica el motivo del cambio clínico.'); setSaving(false); submissionPendingRef.current = false; return
+    }
     const shouldCheckDuplicates = isNew || duplicateRelevantFieldsChanged(form, baselineForm)
     try {
       if (shouldCheckDuplicates) {
@@ -353,13 +374,14 @@ export default function PatientRecordPage({ isNew = false }) {
     ? missingProfileFields.length === 0
     : patient?.profile_complete !== false
   const missingGuardianFields = missingProfileFields.filter((field) => field.startsWith('guardian_'))
-  return <form onSubmit={submit} className="mx-auto w-full max-w-6xl">
-    <div className="mb-5 flex items-center justify-between gap-4"><Link to="/pacientes" className="text-sm font-medium text-slate-600 no-underline hover:text-blue-700">← Volver a pacientes</Link><div className="flex items-center gap-2">{canExport ? <button type="button" onClick={exportRecord} disabled={exporting} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60">{exporting ? 'Generando PDF…' : 'Exportar PDF'}</button> : null}{isDirty ? <div aria-label="Acciones de cambios" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm"><button type="submit" disabled={saving} aria-label="Guardar cambios" title="Guardar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 disabled:opacity-50">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" /> : <CloudSaveIcon />}</button><button type="button" onClick={discard} disabled={saving} aria-label="Descartar cambios" title="Descartar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 disabled:opacity-50"><CloseIcon /></button></div> : null}</div></div>
+  return <form onSubmit={submit} className="mx-auto w-full max-w-6xl pb-20">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4"><Link to="/pacientes" className="text-sm font-medium text-slate-600 no-underline hover:text-blue-700">← Volver a pacientes</Link><div className="flex items-center gap-2">{canExport ? <button type="button" onClick={exportRecord} disabled={exporting} className="rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60">{exporting ? 'Generando PDF…' : 'Exportar PDF'}</button> : null}{isDirty ? <div aria-label="Acciones de cambios" className="fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-lg sm:right-8"><button type="submit" disabled={saving} aria-label="Guardar cambios" title="Guardar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 disabled:opacity-50">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" /> : <CloudSaveIcon />}</button><button type="button" onClick={discard} disabled={saving} aria-label="Descartar cambios" title="Descartar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 disabled:opacity-50"><CloseIcon /></button></div> : null}</div></div>
     <PatientHeader patient={patient} title={title} initials={initials} isActive={form.is_active} identityText={identityText || 'Completa los datos para crear el expediente clínico.'} profileComplete={profileComplete} />
     <PatientTabs patientId={patient?.id} active="summary" isNew={isNew} />
     {error ? <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p> : null}
     {!profileComplete ? <ProfileIncompleteNotice fields={missingProfileFields} /> : null}
     <div className="mt-6"><ClinicalAlertsBanner clinicalRecord={recordSource} /></div>
+    {clinicalDirty ? <label className="mt-5 grid gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold">Motivo del cambio clínico<textarea aria-label="Motivo del cambio clínico" required maxLength={1000} value={clinicalReason} onChange={(event) => setClinicalReason(event.target.value)} rows={2} className="rounded-lg border border-blue-200 bg-white p-2 font-normal" /></label> : null}
 
     <div className="mt-6 grid gap-5 lg:grid-cols-2">
       {!isNew && canEdit ? <SectionCard title="Estado administrativo">
@@ -426,8 +448,12 @@ export default function PatientRecordPage({ isNew = false }) {
               ? 'Cédula'
               : 'Número de identificación',
             ariaLabel: 'Número de identificación',
-            value: personalSource.identification_number,
+            value: personalSource.identification_type === 'CEDULA'
+              ? formatCedula(personalSource.identification_number)
+              : personalSource.identification_number,
             field: 'identification_number',
+            pattern: form.identification_type === 'CEDULA' ? cedulaPattern : undefined,
+            placeholder: form.identification_type === 'CEDULA' ? '281-090403-1006K' : undefined,
           },
         ]} />
         <p className="mt-4 text-xs text-slate-500">El número es opcional. Si se registra, selecciona el tipo correspondiente.</p>
@@ -445,9 +471,11 @@ export default function PatientRecordPage({ isNew = false }) {
           { label: 'Teléfono del responsable', value: personalSource.guardian_phone, field: 'guardian_phone', type: 'tel' },
         ]} />
       </SectionCard>
+      <SectionCard title="Historia de la enfermedad actual" wide><RecordValue label="Historia de la enfermedad actual" value={recordSource.present_illness_history} field="present_illness_history" type="textarea" form={form} canModify={canModify} onChange={update} /></SectionCard>
       <SectionCard title="Antecedentes familiares patológicos" wide><RecordValue label="Antecedentes familiares" value={recordSource.family_history} field="family_history" type="textarea" form={form} canModify={canModify} onChange={update} /><div className="mt-5 grid gap-5 sm:grid-cols-2"><DiseaseGroup title="Enfermedades infectocontagiosas" values={canModify ? form.infectious_diseases : record.infectious_diseases} labels={infectiousLabels} canModify={canModify} onChange={(name, value) => updateDisease('infectious_diseases', name, value)} /><DiseaseGroup title="Enfermedades hereditarias" values={canModify ? form.hereditary_diseases : record.hereditary_diseases} labels={hereditaryLabels} hiddenField="allergies" canModify={canModify} onChange={(name, value) => updateDisease('hereditary_diseases', name, value)} /></div></SectionCard>
     </div>
-    {blocker.state === 'blocked' ? <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]"><section role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><h2 id="unsaved-changes-title" className="font-serif text-2xl font-semibold text-slate-900">Cambios sin guardar</h2><p className="mt-2 text-sm leading-6 text-slate-600">Hay información del expediente que todavía no se ha guardado. Si sales ahora, esos cambios se perderán.</p><div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => blocker.reset()} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">Seguir editando</button><button type="button" onClick={() => { allowNavigationRef.current = true; blocker.proceed() }} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200">Descartar y salir</button></div></section></div> : null}
+    {blocker.state === 'blocked' ? <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]"><section role="dialog" aria-modal="true" aria-labelledby="unsaved-changes-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"><h2 id="unsaved-changes-title" className="font-sans text-2xl font-semibold text-slate-900">Cambios sin guardar</h2><p className="mt-2 text-sm leading-6 text-slate-600">Hay información del expediente que todavía no se ha guardado. Si sales ahora, esos cambios se perderán.</p><div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><button type="button" onClick={() => blocker.reset()} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">Seguir editando</button><button type="button" onClick={() => { allowNavigationRef.current = true; blocker.proceed() }} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200">Descartar y salir</button></div></section></div> : null}
+    {!isNew ? <ClinicalHistoryPanel accessToken={accessToken} patientId={id} /> : null}
     <PatientDuplicateDialog
       matches={duplicateMatches}
       busy={saving}

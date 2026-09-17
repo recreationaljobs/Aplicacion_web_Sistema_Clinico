@@ -8,6 +8,7 @@ from django.test import TransactionTestCase
 from rest_framework.test import APIClient
 
 from apps.clinics.models import ClinicProfile
+from apps.common.test_utils import open_clinic_days
 from apps.patients.models import Consultation, OdontogramVersion, Patient
 from apps.users.models import User
 
@@ -29,6 +30,7 @@ class PostgresAppointmentTestBase(TransactionTestCase):
 
     def setUp(self):
         super().setUp()
+        open_clinic_days()
         self.client = APIClient()
         ClinicProfile.objects.get_or_create(pk=1)
         self.admin = User.objects.create_user(
@@ -328,17 +330,13 @@ class PostgresAppointmentConcurrencyTests(PostgresAppointmentTestBase):
         result_lock = Lock()
         responses = []
         errors = []
-        original_create = AppointmentSerializer.create
-
-        def synchronized_create(serializer, validated_data):
-            barrier.wait(timeout=10)
-            return original_create(serializer, validated_data)
-
         def post(payload):
             close_old_connections()
             try:
                 client = APIClient()
                 client.force_authenticate(User.objects.get(pk=self.admin.pk))
+                # Synchronize before the shared clinic lock, never inside it.
+                barrier.wait(timeout=10)
                 response = client.post(self.list_url, payload, format="json")
                 with result_lock:
                     responses.append((response.status_code, response.data))
@@ -348,22 +346,26 @@ class PostgresAppointmentConcurrencyTests(PostgresAppointmentTestBase):
             finally:
                 close_old_connections()
 
-        with patch.object(AppointmentSerializer, "create", synchronized_create):
-            threads = [Thread(target=post, args=(payload,)) for payload in payloads]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join(timeout=15)
+        threads = [Thread(target=post, args=(payload,)) for payload in payloads]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=15)
 
         self.assertTrue(all(not thread.is_alive() for thread in threads))
         self.assertEqual(errors, [])
         return responses
 
     def assert_single_concurrent_winner(self, responses, conflict):
-        self.assertEqual(sorted(status for status, _ in responses), [201, 409])
-        conflict_payload = next(data for status, data in responses if status == 409)
-        self.assertEqual(conflict_payload["code"], "appointment_overlap")
-        self.assertEqual(conflict_payload["conflict"], conflict)
+        # The shared lock exposes the winner to ordinary validation (400).
+        # Direct concurrent database writes still exercise the exclusion constraint.
+        self.assertEqual(sorted(status for status, _ in responses), [201, 400])
+        conflict_payload = next(data for status, data in responses if status == 400)
+        expected = (
+            "El odontólogo ya tiene una cita en ese horario."
+            if conflict == "dentist" else "El paciente ya tiene una cita en ese horario."
+        )
+        self.assertEqual([str(item) for item in conflict_payload["non_field_errors"]], [expected])
         self.assertEqual(Appointment.objects.count(), 1)
         self.assertEqual(Appointment.objects.filter(reason="Prueba PostgreSQL").count(), 1)
 

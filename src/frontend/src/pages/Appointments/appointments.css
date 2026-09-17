@@ -20,7 +20,8 @@
 }
 
 .dentist-dot { width: 7px; height: 7px; border-radius: 999px; background: #1d4ed8; }
-.timeline-body { position: relative; min-width: calc(78px + var(--lane-count) * 190px); height: var(--timeline-height); }
+/* Keep the final hour label and minimum-height compact cards inside the scroll bounds. */
+.timeline-body { position: relative; min-width: calc(78px + var(--lane-count) * 190px); height: calc(var(--timeline-height) + 32px); }
 .time-axis { position: absolute; inset: 0 auto 0 0; width: 78px; background: #fff; }
 .time-axis span { position: absolute; right: 15px; transform: translateY(-7px); color: #94a3b8; font-size: 10px; font-weight: 700; }
 .timeline-stage { position: absolute; inset: 0 0 0 78px; height: var(--timeline-height); background: linear-gradient(to right, transparent calc(100% - 1px), #e2e8f0 calc(100% - 1px)); background-size: calc(100% / var(--lane-count)) 100%; }

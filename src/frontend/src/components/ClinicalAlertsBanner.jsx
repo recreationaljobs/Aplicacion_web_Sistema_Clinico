@@ -25,7 +25,7 @@ export default function ClinicalAlertsBanner({ clinicalRecord }) {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${hasAlerts ? 'text-amber-800' : 'text-slate-500'}`}>Seguridad del paciente</p>
-        <h2 className="mt-1 font-serif text-xl font-semibold text-slate-950">Alertas clínicas</h2>
+        <h2 className="mt-1 font-sans text-xl font-semibold text-slate-950">Alertas clínicas</h2>
       </div>
       {hasPendingHistoricalAllergy
         ? <span className="rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-semibold text-amber-900">Información pendiente de completar</span>

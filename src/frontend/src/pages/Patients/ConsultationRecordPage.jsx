@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBeforeUnload, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import ClinicalAlertsBanner from '../../components/ClinicalAlertsBanner'
+import ClinicalHistoryPanel from './ClinicalHistoryPanel'
 import { useAuth } from '../../context/authContextValue'
 import {
   acceptConsultationTreatmentItem,
@@ -43,11 +44,26 @@ function CloseIcon() {
 }
 
 function SectionCard({ title, children, wide = false }) {
-  return <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 ${wide ? 'lg:col-span-2' : ''}`}><h2 className="font-serif text-2xl font-semibold text-slate-900">{title}</h2><div className="mt-5">{children}</div></section>
+  return <section className={`rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6 ${wide ? 'lg:col-span-2' : ''}`}><h2 className="font-sans text-2xl font-semibold text-slate-900">{title}</h2><div className="mt-5">{children}</div></section>
 }
 
 function ConsultationField({ descriptor, value, canModify, onChange }) {
   const { field, label, type = 'text', options = [], required = false, readOnly = false } = descriptor
+  if (type === 'checkbox') {
+    return <label htmlFor={`consultation-${field}`} className="inline-flex items-center gap-3 text-sm font-medium text-slate-700">
+      <input
+        id={`consultation-${field}`}
+        aria-label={label}
+        name={field}
+        type="checkbox"
+        checked={value}
+        disabled={!canModify || readOnly}
+        onChange={({ target }) => onChange({ target: { name: field, value: target.checked } })}
+        className="h-4 w-4 shrink-0 rounded border-slate-300 accent-blue-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+      />
+      <span>{label}</span>
+    </label>
+  }
   if (!canModify) {
     const display = options.find(([code]) => code === value)?.[1] || value
     return <div className={type === 'textarea' ? 'min-h-16' : ''}><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</p><p className={`mt-2 whitespace-pre-wrap text-sm leading-6 ${display ? 'font-medium text-slate-700' : 'italic text-slate-400'}`}>{display || 'Sin información registrada'}</p></div>
@@ -72,7 +88,7 @@ function UnsavedDialog({ blocker, allowNavigationRef }) {
   if (blocker.state !== 'blocked') return null
   return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
     <section role="dialog" aria-modal="true" aria-labelledby="consultation-unsaved-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-      <h2 id="consultation-unsaved-title" className="font-serif text-2xl font-semibold text-slate-900">Cambios sin guardar</h2>
+      <h2 id="consultation-unsaved-title" className="font-sans text-2xl font-semibold text-slate-900">Cambios sin guardar</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">Hay información de la consulta que todavía no se ha guardado. Si sales ahora, esos cambios se perderán.</p>
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" onClick={() => blocker.reset()} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">Seguir editando</button>
@@ -85,8 +101,8 @@ function UnsavedDialog({ blocker, allowNavigationRef }) {
 function CompletionDialog({ completing, onCancel, onConfirm }) {
   return <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
     <section role="dialog" aria-modal="true" aria-labelledby="consultation-complete-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
-      <h2 id="consultation-complete-title" className="font-serif text-2xl font-semibold text-slate-900">Completar consulta</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">El cierre hará que el registro clínico quede en modo de solo lectura. Esta acción no sustituye una corrección o adenda futura.</p>
+      <h2 id="consultation-complete-title" className="font-sans text-2xl font-semibold text-slate-900">Completar consulta</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">El cierre dejará la consulta en modo de solo lectura. Las aclaraciones posteriores se registran como adendas y conservan el contenido original.</p>
       <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" onClick={onCancel} disabled={completing} className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-50">Volver</button>
         <button type="button" onClick={onConfirm} disabled={completing} aria-label={completing ? 'Completando consulta' : 'Confirmar cierre'} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{completing ? 'Completando…' : 'Confirmar cierre'}</button>
@@ -193,6 +209,7 @@ export default function ConsultationRecordPage({ isNew = false }) {
   const professionalRegistration = isNew
     ? user.professional_registration_number
     : consultation?.professional_registration_number
+  const professionalPhone = isNew ? user.phone : consultation?.professional_phone
 
   const discard = () => {
     setError('')
@@ -327,12 +344,12 @@ export default function ConsultationRecordPage({ isNew = false }) {
   if (!patient) return <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error || 'No fue posible cargar el paciente.'}</p>
 
   const title = isNew ? 'Nueva consulta' : consultationTitle(consultation)
-  return <form onSubmit={submit} className="mx-auto w-full max-w-6xl">
-    <div className="mb-5 flex items-center justify-between gap-4">
+  return <form onSubmit={submit} className="mx-auto w-full max-w-6xl pb-20">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
       <Link to={`/pacientes/${patientId}/consultas`} className="text-sm font-medium text-slate-600 no-underline hover:text-blue-700">← Volver a consultas</Link>
       <div className="flex items-center gap-2">
       {canComplete ? <button type="button" onClick={() => setCompletionOpen(true)} disabled={isDirty || completing} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50">Completar consulta</button> : null}
-      {isDirty ? <div aria-label="Acciones de cambios" className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+      {isDirty ? <div aria-label="Acciones de cambios" className="fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-lg sm:right-8">
         <button type="submit" disabled={saving} aria-label="Guardar cambios" title="Guardar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 disabled:opacity-50">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" /> : <CloudSaveIcon />}</button>
         <button type="button" onClick={discard} disabled={saving} aria-label="Descartar cambios" title="Descartar cambios" className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 disabled:opacity-50"><CloseIcon /></button>
       </div> : null}
@@ -346,7 +363,7 @@ export default function ConsultationRecordPage({ isNew = false }) {
     <div className="mt-6"><ClinicalAlertsBanner clinicalRecord={patient.clinical_record} /></div>
 
     <div className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-cyan-100 bg-cyan-50/70 px-5 py-4">
-      <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-700">Historial médico</p><h2 className="mt-1 font-serif text-2xl font-semibold text-slate-900">{title}</h2></div>
+      <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-700">Historial médico</p><h2 className="mt-1 font-sans text-2xl font-semibold text-slate-900">{title}</h2></div>
       {!isNew && consultation?.status_display ? <div className="text-right"><span className="inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-cyan-800 shadow-sm">{consultation.status_display}</span>{consultation.completed_at ? <p className="mt-2 text-xs font-medium text-slate-600">Cerrada el {completionDate(consultation.completed_at)}</p> : null}{consultation.completed_by_name ? <p className="mt-1 text-xs text-slate-500">Cerrada por {consultation.completed_by_name}</p> : null}</div> : null}
     </div>
 
@@ -360,18 +377,19 @@ export default function ConsultationRecordPage({ isNew = false }) {
       <SectionCard title="Datos generales de la consulta" wide>
         <div className="mb-5 grid gap-x-8 gap-y-5 sm:grid-cols-2">
           <ConsultationField descriptor={{ label: 'Profesional', field: 'professional_name', readOnly: true }} value={isNew ? professionalName : consultation?.professional_name || ''} canModify={canModify} onChange={() => {}} />
-          {professionalSpecialty ? <ConsultationField descriptor={{ label: 'Especialidad', field: 'professional_specialty', readOnly: true }} value={professionalSpecialty} canModify={false} onChange={() => {}} /> : null}
-          {professionalRegistration ? <ConsultationField descriptor={{ label: 'Registro profesional', field: 'professional_registration_number', readOnly: true }} value={professionalRegistration} canModify={false} onChange={() => {}} /> : null}
+          <ConsultationField descriptor={{ label: 'Especialidad', field: 'professional_specialty', readOnly: true }} value={professionalSpecialty || ''} canModify={canModify} onChange={() => {}} />
+          <ConsultationField descriptor={{ label: 'Código MINSA', field: 'professional_registration_number', readOnly: true }} value={professionalRegistration || ''} canModify={canModify} onChange={() => {}} />
+          <ConsultationField descriptor={{ label: 'Teléfono del profesional', field: 'professional_phone', readOnly: true }} value={professionalPhone || ''} canModify={canModify} onChange={() => {}} />
         </div>
         <FieldsGrid fields={generalFields} form={form} canModify={canModify} onChange={update} />
       </SectionCard>
-      {narrativeCards.slice(0, 2).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle}><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
+      {narrativeCards.slice(0, 1).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle} wide><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
       <SectionCard title="Interrogatorio por aparatos y sistemas" wide><FieldsGrid fields={systemsFields} form={form} canModify={canModify} onChange={update} /></SectionCard>
       <SectionCard title="Examen físico" wide>
         <FieldsGrid fields={vitalFields} form={form} canModify={canModify} onChange={update} columns="sm:grid-cols-2 lg:grid-cols-4" />
         <div className="mt-7"><FieldsGrid fields={examinationFields} form={form} canModify={canModify} onChange={update} /></div>
       </SectionCard>
-      {narrativeCards.slice(2, 4).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle}><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
+      {narrativeCards.slice(1, 2).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle} wide><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
       {!isNew ? <TreatmentPlanSection
         items={treatmentPlan.items}
         services={treatmentServices}
@@ -391,8 +409,9 @@ export default function ConsultationRecordPage({ isNew = false }) {
         onPerform={performTreatmentItem}
         onCancel={cancelTreatmentItem}
       /> : null}
-      {narrativeCards.slice(4).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle}><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
+      {narrativeCards.slice(2).map(([cardTitle, label, field]) => <SectionCard key={field} title={cardTitle}><ConsultationField descriptor={{ label, field, type: 'textarea' }} value={form[field]} canModify={canModify} onChange={update} /></SectionCard>)}
     </div>
+    {!isNew ? <ClinicalHistoryPanel key={consultationId} accessToken={accessToken} patientId={patientId} consultationId={consultationId} canAmend={canEdit && consultation?.status === 'COMPLETADA'} /> : null}
     <UnsavedDialog blocker={blocker} allowNavigationRef={allowNavigationRef} />
     {completionOpen ? <CompletionDialog completing={completing} onCancel={() => setCompletionOpen(false)} onConfirm={complete} /> : null}
   </form>

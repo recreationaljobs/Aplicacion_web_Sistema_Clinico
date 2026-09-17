@@ -40,3 +40,8 @@ Estado: Implementada y verificada.
 - `.venv\Scripts\python.exe manage.py migrate --check`
 - `.venv\Scripts\python.exe manage.py makemigrations --check --dry-run`
 - `git diff --check`
+
+## Ajuste del encabezado del 16 de septiembre de 2026
+
+- El encabezado conserva el nombre y contacto de la clínica y deja de mostrar el subtítulo retirado del perfil.
+- La suite de exportación PDF pasó junto con las pruebas de configuración: 15 pruebas backend correctas mediante `python manage.py test apps.clinics apps.patients.test_clinical_record_export --settings=config.settings.test --noinput`.

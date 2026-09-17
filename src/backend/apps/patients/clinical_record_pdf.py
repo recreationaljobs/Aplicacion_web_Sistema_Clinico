@@ -213,10 +213,6 @@ def _page_decorator(*, clinic, patient, generated_at, logo_reader):
         canvas.setFillColor(NAVY)
         canvas.setFont("Helvetica-Bold", 12)
         canvas.drawString(text_left, page_height - 17 * mm, str(clinic.name or "DentalClinic"))
-        if clinic.tagline:
-            canvas.setFont("Helvetica", 7.5)
-            canvas.setFillColor(MUTED)
-            canvas.drawString(text_left, page_height - 21 * mm, str(clinic.tagline)[:110])
         if contact:
             canvas.setFont("Helvetica", 6.8)
             canvas.setFillColor(MUTED)
@@ -276,6 +272,7 @@ def _clinical_record_story(patient, styles):
         return story
     fields = (
         ("Motivo principal", record.chief_complaint),
+        ("Historia de la enfermedad actual", record.present_illness_history),
         ("Alergias", record.allergies),
         ("Medicamentos actuales", record.current_medications),
         ("Condiciones relevantes", record.relevant_conditions),
@@ -297,7 +294,7 @@ def _clinical_record_story(patient, styles):
 
 def _consultation_story(patient, styles):
     story = _section_title("Historial de consultas", styles)
-    consultations = patient.consultations.select_related("professional").order_by(
+    consultations = patient.consultations.select_related("professional").prefetch_related("amendments").order_by(
         "date", "time", "created_at", "pk"
     )
     if not consultations.exists():
@@ -332,11 +329,13 @@ def _consultation_story(patient, styles):
             ("Resumen", consultation.summary),
             ("Motivo de consulta", consultation.chief_complaint),
             ("Diagnóstico dental", consultation.dental_diagnoses),
-            ("Análisis / evolución", consultation.observations_analysis),
-            ("Tratamiento realizado", consultation.treatment_performed),
         ):
             if value:
                 story.append(Paragraph(f"<b>{escape(label)}:</b> {_safe(value)}", styles["body"]))
+        for amendment in consultation.amendments.all():
+            story.append(_paragraph(f"Adenda · {amendment.author_name} · {amendment.created_at.isoformat()}", styles["label"]))
+            story.append(_paragraph(f"Motivo: {amendment.reason}", styles["body"]))
+            story.append(_paragraph(amendment.content, styles["body"]))
         story.append(Spacer(1, 1.5 * mm))
     return story
 

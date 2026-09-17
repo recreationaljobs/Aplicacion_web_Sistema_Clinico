@@ -6,7 +6,7 @@
 
 Se mantiene una sola entidad `Patient`. La identidad administrativa usa un par opcional `identification_type`/`identification_number`, con tipos `CEDULA`, `PASAPORTE` y `OTRO`. Si existe número debe existir tipo; ambos pueden ser nulos cuando la identificación todavía no está disponible.
 
-La unicidad se aplica en base de datos sobre el tipo y una expresión normalizada del número, únicamente cuando ambos existen. El número público conserva su valor histórico y sus caracteres significativos. La normalización central elimina espacios exteriores y convierte a mayúsculas; para `CEDULA`, la clave de comparación también ignora espacios y guiones, conservando la equivalencia de HU-13. Pasaportes y otros documentos conservan sus caracteres internos.
+La unicidad se aplica en base de datos sobre el tipo y una expresión normalizada del número, únicamente cuando ambos existen. Las entradas de `CEDULA` se guardan con el formato `281-090403-1006K`: tres dígitos, seis dígitos y cuatro dígitos más una letra mayúscula, separados por guiones. Se aceptan entradas completas compactas o con espacios y guiones; se rechazan estructuras incompletas. La normalización central elimina espacios exteriores y convierte a mayúsculas; la clave de comparación de `CEDULA` ignora espacios y guiones, conservando la equivalencia de HU-13. Pasaportes y otros documentos conservan sus caracteres internos.
 
 Se añadieron `guardian_name`, `guardian_relationship` y `guardian_phone`, todos opcionales. No se creó un modelo de tutor ni un modelo provisional de paciente.
 
@@ -61,3 +61,11 @@ El runner aislado de pruebas PostgreSQL no pudo crear una base temporal porque e
 - HU-13 reutiliza esta protección exacta y añade advertencias no bloqueantes por teléfono o nombre y nacimiento.
 - HU-17 no cambia: paciente inactivo y perfil incompleto siguen siendo conceptos separados.
 - HU-52 reutiliza la identificación flexible y el cálculo de perfil en el alta rápida desde agenda.
+
+## Ajuste del formato de cédula del 16 de septiembre de 2026
+
+- El expediente y el alta rápida convierten entradas completas como `2810904031006k` a `281-090403-1006K`; muestran el ejemplo y validan la estructura del campo. La entrada incompleta se conserva durante la edición y no se trunca información inválida.
+- La API normaliza y valida nuevas cédulas y cambios de identificación. La validación es de estructura, sin verificar emisión ni correspondencia con fecha de nacimiento.
+- La identificación continúa opcional; pasaportes y otros documentos conservan formato libre. No se modificó el esquema ni se reescribieron identificaciones históricas en la base.
+- Verificación: 88 pruebas backend de API, perfiles y duplicados; 67 pruebas frontend de App y alta rápida, todas correctas. Lint, build, Django check, consistencia de migraciones y diff check correctos.
+- Comandos: `python manage.py test apps.patients.tests apps.patients.test_hu53 apps.patients.test_hu13_duplicates --settings=config.settings.test --noinput`, `npm test -- src/App.test.jsx src/pages/Appointments/PatientQuickCreateDialog.test.jsx`, `npm run lint`, `npm run build`, `python manage.py makemigrations --check --dry-run` y `git diff --check`.
