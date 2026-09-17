@@ -94,6 +94,7 @@ class ClinicalRecordExportApiTests(APITestCase):
         ClinicalRecord.objects.create(
             patient=self.patient,
             chief_complaint="Dolor dental persistente",
+            present_illness_history="Historia longitudinal del paciente",
             family_history="Antecedente familiar controlado",
             allergies="Alergia a penicilina",
             current_medications="Losartan 50 mg",
@@ -177,7 +178,6 @@ class ClinicalRecordExportApiTests(APITestCase):
             pk=1,
             defaults={
                 "name": "Clinica Horizonte A",
-                "tagline": "Odontologia integral",
                 "phone": "2222-3333",
                 "email": "contacto@horizonte.test",
                 "address": "Avenida Central 123",
@@ -200,8 +200,6 @@ class ClinicalRecordExportApiTests(APITestCase):
             status=status,
             chief_complaint="Molestia al masticar",
             dental_diagnoses="Diagnostico de consulta",
-            observations_analysis="Evolucion estable",
-            treatment_performed="Control clinico",
         )
 
     def export(self, **headers):
@@ -243,6 +241,7 @@ class ClinicalRecordExportApiTests(APITestCase):
             "Ana Perez Lopez",
             self.patient.code,
             "Alergia a penicilina",
+            "Historia longitudinal del paciente",
             "Hipertension controlada",
             "Restauracion pendiente",
             "Profilaxis realizada",

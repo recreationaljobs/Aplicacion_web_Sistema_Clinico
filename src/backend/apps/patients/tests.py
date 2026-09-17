@@ -69,8 +69,6 @@ class PatientApiTests(APITestCase):
                 "other_clinical_alerts": "Antecedente de síncope durante procedimientos",
                 "examiner_name": "Dra. Elena Ruiz",
                 "examiner_national_id": "001-010180-0003C",
-                "inss_number": "INSS-9081",
-                "cema_number": "CEMA-4402",
                 "consultation_date": "2026-08-08",
                 "consultation_time": "09:30:00",
                 "dental_service": "Valoración odontológica",
@@ -96,24 +94,9 @@ class PatientApiTests(APITestCase):
                 "bmi": "25.12",
                 "general_appearance": "Consciente y orientada.",
                 "skin_and_mucosa": "Normocoloreadas.",
-                "thorax": "Simétrico.",
-                "rib_cage": "Sin deformidades.",
-                "breasts": "Sin hallazgos.",
-                "lung_fields": "Ventilados.",
-                "cardiac": "Rítmico.",
-                "abdomen_pelvis": "Blando, depresible.",
-                "rectal_exam": "No aplica.",
-                "musculoskeletal": "Movilidad conservada.",
-                "upper_extremities": "Sin edema.",
-                "lower_extremities": "Sin edema.",
-                "genitourinary": "Sin hallazgos.",
-                "gynecological_exam": "No aplica.",
-                "neurological_exam": "Sin déficit focal.",
-                "observations_analysis": "Paciente apta para tratamiento.",
                 "dental_diagnoses": "Pulpitis irreversible en pieza 46.",
                 "treatment_plan": "Tratamiento endodóntico y corona.",
                 "budget": "Endodoncia: C$ 4,500; corona: C$ 6,000.",
-                "treatment_performed": "Radiografía periapical diagnóstica.",
                 "radiographic_exams": ["periapical-46.pdf"],
                 "clinical_photographs": ["pieza-46-frontal.jpg"],
             },
@@ -128,6 +111,10 @@ class PatientApiTests(APITestCase):
         self.assertEqual(response.data["origin"], "Chinandega")
         self.assertEqual(response.data["information_reliability"], "Confiable")
         record = response.data["clinical_record"]
+        self.assertNotIn("observations_analysis", record)
+        self.assertNotIn("treatment_performed", record)
+        self.assertNotIn("inss_number", record)
+        self.assertNotIn("cema_number", record)
         self.assertEqual(record["examiner_name"], "Dra. Elena Ruiz")
         self.assertEqual(record["allergies"], "Penicilina — urticaria")
         self.assertEqual(record["current_medications"], "Losartán 50 mg")
@@ -137,6 +124,7 @@ class PatientApiTests(APITestCase):
             "Antecedente de síncope durante procedimientos",
         )
         self.assertEqual(record["chief_complaint"], "Dolor en molar inferior derecho.")
+        self.assertEqual(record["present_illness_history"], "Dolor pulsátil de tres días de evolución.")
         self.assertEqual(record["cardiovascular"], "Sin dolor precordial.")
         self.assertTrue(record["infectious_diseases"]["varicella"])
         self.assertTrue(record["hereditary_diseases"]["diabetes_mellitus"])
@@ -323,10 +311,35 @@ class PatientApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.data["identification_number"],
-            "001 160498 0001A",
+            "001-160498-0001A",
         )
         patient = Patient.objects.get(pk=created.data["id"])
-        self.assertEqual(patient.identification_number, "001 160498 0001A")
+        self.assertEqual(patient.identification_number, "001-160498-0001A")
+
+    def test_cedula_input_is_saved_with_hyphens_and_uppercase_letter(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.post(
+            self.list_url,
+            self.payload(identification_number="2810904031006k"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["identification_number"], "281-090403-1006K")
+        self.assertEqual(
+            Patient.objects.get(pk=response.data["id"]).identification_number,
+            "281-090403-1006K",
+        )
+
+    def test_cedula_rejects_incomplete_or_invalid_structure(self):
+        self.client.force_authenticate(self.admin)
+        for number in ("32423553245345", "2810904031006", "281090403100KK", "281.090403.1006K"):
+            with self.subTest(number=number):
+                response = self.client.post(
+                    self.list_url, self.payload(identification_number=number), format="json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("identification_number", response.data)
+        self.assertEqual(Patient.objects.count(), 0)
 
     def test_hu13_allows_a_genuinely_distinct_national_id(self):
         self.client.force_authenticate(self.receptionist)
@@ -1111,18 +1124,15 @@ class ConsultationApiTests(APITestCase):
             "summary": "Valoración clínica integral.",
             "status": "EN_PROGRESO",
             "examiner_national_id": "001-010180-0003C",
-            "inss_number": "INSS-9081",
-            "cema_number": "CEMA-4402",
             "dental_service": "Valoración odontológica",
             "chief_complaint": "Dolor en molar inferior derecho.",
-            "present_illness_history": "Dolor pulsátil de tres días.",
-            "respiratory": "Sin disnea.",
-            "cardiovascular": "Sin dolor precordial.",
-            "hepatic_renal": "Sin alteraciones referidas.",
-            "gastrointestinal": "Apetito conservado.",
-            "neurological": "Sin cefalea.",
-            "blood_system": "Sin sangrado anormal.",
-            "reproductive_organs": "Sin alteraciones referidas.",
+            "respiratory": True,
+            "cardiovascular": True,
+            "hepatic_renal": True,
+            "gastrointestinal": True,
+            "neurological": True,
+            "blood_system": True,
+            "reproductive_organs": True,
             "heart_rate": 72,
             "respiratory_rate": 16,
             "blood_pressure": "118/76",
@@ -1133,24 +1143,9 @@ class ConsultationApiTests(APITestCase):
             "bmi": "25.12",
             "general_appearance": "Consciente y orientada.",
             "skin_and_mucosa": "Normocoloreadas.",
-            "thorax": "Simétrico.",
-            "rib_cage": "Sin deformidades.",
-            "breasts": "Sin hallazgos.",
-            "lung_fields": "Ventilados.",
-            "cardiac": "Rítmico.",
-            "abdomen_pelvis": "Blando, depresible.",
-            "rectal_exam": "No aplica.",
-            "musculoskeletal": "Movilidad conservada.",
-            "upper_extremities": "Sin edema.",
-            "lower_extremities": "Sin edema.",
-            "genitourinary": "Sin hallazgos.",
-            "gynecological_exam": "No aplica.",
-            "neurological_exam": "Sin déficit focal.",
-            "observations_analysis": "Paciente apta para tratamiento.",
             "dental_diagnoses": "Pulpitis irreversible en pieza 46.",
             "treatment_plan": "Tratamiento endodóntico y corona.",
             "budget": "C$ 10,500.",
-            "treatment_performed": "Radiografía periapical diagnóstica.",
         }
         data.update(overrides)
         return data
@@ -1205,22 +1200,95 @@ class ConsultationApiTests(APITestCase):
         )
         self.assertEqual(set(response.data["results"][0]), {"id", "date"})
 
+    def test_system_checks_persist_as_booleans_when_created_and_updated(self):
+        checks = {
+            "respiratory": True,
+            "cardiovascular": False,
+            "hepatic_renal": True,
+            "gastrointestinal": False,
+            "neurological": True,
+            "blood_system": False,
+            "reproductive_organs": True,
+        }
+        created = self.create_consultation(**checks)
+        self.assertEqual(created.status_code, 201)
+        consultation = Consultation.objects.get(pk=created.data["id"])
+        for field, expected in checks.items():
+            with self.subTest(field=field):
+                self.assertIs(getattr(consultation, field), expected)
+                self.assertIs(created.data[field], expected)
+
+        updated_checks = {field: not checked for field, checked in checks.items()}
+        detail_url = f"{self.list_url}{consultation.pk}/"
+        updated = self.client.patch(detail_url, updated_checks, format="json")
+        self.assertEqual(updated.status_code, 200)
+        retrieved = self.client.get(detail_url)
+        self.assertEqual(retrieved.status_code, 200)
+        consultation.refresh_from_db()
+        for field, expected in updated_checks.items():
+            with self.subTest(field=field):
+                self.assertIs(getattr(consultation, field), expected)
+                self.assertIs(retrieved.data[field], expected)
+
+    def test_system_checks_reject_narrative_text(self):
+        checks = {
+            "respiratory": False, "cardiovascular": False, "hepatic_renal": False,
+            "gastrointestinal": False, "neurological": False, "blood_system": False,
+            "reproductive_organs": False,
+        }
+        for field in checks:
+            with self.subTest(field=field):
+                response = self.create_consultation(**{**checks, field: "Sin alteraciones."})
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(field, response.data)
+
     def test_creates_complete_consultation_and_assigns_authenticated_professional(self):
+        self.client.force_authenticate(self.dentist)
+        profile = self.client.patch(
+            "/api/auth/me/",
+            {
+                "specialty": "Implantología",
+                "professional_registration_number": "9669",
+                "phone": "+505 8888 4321",
+            },
+            format="json",
+        )
+        self.assertEqual(profile.status_code, 200)
+        self.dentist.refresh_from_db()
         response = self.create_consultation(
             professional=self.admin.pk,
             patient=self.other_patient.pk,
+            professional_phone="000",
+            professional_specialty="Falso",
+            professional_registration_number="Falso",
         )
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["patient"], self.patient.pk)
         self.assertEqual(response.data["professional"], self.dentist.pk)
         self.assertEqual(response.data["professional_name"], "Elena Rivera")
+        self.assertEqual(response.data["professional_specialty"], "Implantología")
+        self.assertEqual(response.data["professional_registration_number"], "9669")
+        self.assertEqual(response.data["professional_phone"], "+505 8888 4321")
         self.assertEqual(response.data["time"], "09:30:00")
         self.assertEqual(response.data["chief_complaint"], "Dolor en molar inferior derecho.")
-        self.assertEqual(response.data["cardiovascular"], "Sin dolor precordial.")
+        self.assertNotIn("present_illness_history", response.data)
+        self.assertNotIn("observations_analysis", response.data)
+        self.assertNotIn("treatment_performed", response.data)
+        self.assertNotIn("inss_number", response.data)
+        self.assertNotIn("cema_number", response.data)
+        self.assertIs(response.data["cardiovascular"], True)
         self.assertEqual(response.data["heart_rate"], 72)
         self.assertEqual(response.data["blood_pressure"], "118/76")
-        self.assertEqual(response.data["neurological_exam"], "Sin déficit focal.")
+        for field in (
+            "thorax", "rib_cage", "breasts", "lung_fields", "cardiac",
+            "abdomen_pelvis", "rectal_exam", "musculoskeletal", "upper_extremities",
+            "lower_extremities", "genitourinary", "gynecological_exam", "neurological_exam",
+        ):
+            with self.subTest(removed_field=field):
+                self.assertNotIn(field, response.data)
+        self.assertEqual(response.data["general_appearance"], "Consciente y orientada.")
+        self.assertEqual(response.data["skin_and_mucosa"], "Normocoloreadas.")
         self.assertEqual(response.data["treatment_plan"], "Tratamiento endodóntico y corona.")
         self.assertFalse(
             Appointment.objects.filter(consultation_id=response.data["id"]).exists()
@@ -1251,7 +1319,7 @@ class ConsultationApiTests(APITestCase):
             detail_url,
             {
                 "summary": "Control completado y actualizado.",
-                "observations_analysis": "Evolución favorable.",
+                "dental_diagnoses": "Diagnóstico actualizado.",
                 "professional": self.admin.pk,
                 "patient": self.other_patient.pk,
             },
@@ -1260,7 +1328,7 @@ class ConsultationApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["summary"], "Control completado y actualizado.")
-        self.assertEqual(response.data["observations_analysis"], "Evolución favorable.")
+        self.assertEqual(response.data["dental_diagnoses"], "Diagnóstico actualizado.")
         self.assertEqual(response.data["professional"], self.dentist.pk)
         self.assertEqual(response.data["patient"], self.patient.pk)
 
