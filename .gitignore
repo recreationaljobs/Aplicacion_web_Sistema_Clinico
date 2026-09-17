@@ -1,2 +1,7 @@
 .agents/
 skills-lock.json
+.tmp/
+.env
+.env.*
+!.env.example
+!.env.*.example

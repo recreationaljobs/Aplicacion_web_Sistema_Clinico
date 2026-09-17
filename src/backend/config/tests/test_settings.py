@@ -207,6 +207,20 @@ class PostgresTestSettingsTests(SimpleTestCase):
 
 
 class ProductionSettingsTests(SimpleTestCase):
+    def test_rejects_ambiguous_origins_hosts_and_placeholder_key(self):
+        for variable, value in (
+            ("CSRF_TRUSTED_ORIGINS", "https://clinic.example.test/path"),
+            ("CORS_ALLOWED_ORIGINS", "https://user:password@clinic.example.test"),
+            ("ALLOWED_HOSTS", "*.example.test"),
+            ("DJANGO_SECRET_KEY", "replace-me"),
+        ):
+            with self.subTest(variable=variable):
+                env = self.production_environment()
+                env[variable] = value
+                result = self.run_django("check", extra_env=env)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(variable, result.stderr)
+
     def run_django(self, *args, extra_env=None):
         env = {
             **os.environ,

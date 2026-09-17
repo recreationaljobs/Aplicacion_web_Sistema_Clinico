@@ -121,7 +121,7 @@ class DentistProfessionalProfileApiTests(APITestCase):
         self.assertEqual(first.status_code, 200)
         self.assertEqual(duplicate_allowed.status_code, 200)
 
-    def test_current_profile_exposes_but_does_not_self_assign_professional_identity(self):
+    def test_current_profile_updates_shared_professional_fields_without_changing_role(self):
         self.dentist.specialty = "Endodoncia"
         self.dentist.professional_registration_number = "REG-900"
         self.dentist.save(update_fields=("specialty", "professional_registration_number"))
@@ -131,8 +131,9 @@ class DentistProfessionalProfileApiTests(APITestCase):
         attempted_assignment = self.client.patch(
             reverse("users:current-user"),
             {
-                "specialty": "Especialidad autoconcedida",
-                "professional_registration_number": "ALTERADO",
+                "specialty": "Implantología",
+                "professional_registration_number": "9669",
+                "phone": "+505 8888 4321",
                 "role": User.Role.ADMINISTRADOR,
             },
             format="multipart",
@@ -143,9 +144,16 @@ class DentistProfessionalProfileApiTests(APITestCase):
         self.assertEqual(profile.data["professional_registration_number"], "REG-900")
         self.assertEqual(attempted_assignment.status_code, 200)
         self.dentist.refresh_from_db()
-        self.assertEqual(self.dentist.specialty, "Endodoncia")
-        self.assertEqual(self.dentist.professional_registration_number, "REG-900")
+        self.assertEqual(self.dentist.specialty, "Implantología")
+        self.assertEqual(self.dentist.professional_registration_number, "9669")
         self.assertEqual(self.dentist.role, User.Role.ODONTOLOGO)
+        self.client.force_authenticate(self.admin)
+        staff = self.client.get(reverse("users:user-list"))
+        self.assertEqual(staff.status_code, 200)
+        staff_profile = next(user for user in staff.data["results"] if user["id"] == self.dentist.pk)
+        self.assertEqual(staff_profile["specialty"], "Implantología")
+        self.assertEqual(staff_profile["professional_registration_number"], "9669")
+        self.assertEqual(staff_profile["phone"], "+505 8888 4321")
 
     def test_login_contract_includes_only_the_current_professional_context(self):
         self.dentist.specialty = "Periodoncia"
@@ -210,6 +218,8 @@ class DentistProfessionalProfileApiTests(APITestCase):
         self.dentist.professional_registration_number = "REG-904"
         second = ConsultationSerializer(consultation).data
 
+        self.assertEqual(first["professional_name"], "Elena Rivera")
+        self.assertEqual(first["professional_phone"], self.dentist.phone)
         self.assertEqual(first["professional_specialty"], "Rehabilitación oral")
         self.assertEqual(first["professional_registration_number"], "REG-903")
         self.assertEqual(second["professional_specialty"], "Endodoncia avanzada")

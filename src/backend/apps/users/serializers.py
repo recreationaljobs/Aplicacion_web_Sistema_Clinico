@@ -301,8 +301,6 @@ class CurrentUserProfileSerializer(AvatarUpdateMixin, serializers.ModelSerialize
         read_only_fields = (
             "id",
             "role",
-            "specialty",
-            "professional_registration_number",
             "permissions",
             "avatar_url",
         )

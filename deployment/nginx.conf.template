@@ -1,0 +1,43 @@
+# Example for ONE origin. Replace the host, certificate paths and dist path.
+# Keep Gunicorn private. Nginx must be the direct, trusted proxy for this example.
+# If another proxy precedes Nginx, configure its exact trusted addresses first.
+server {
+    listen 80;
+    server_name clinic.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name clinic.example.com;
+    ssl_certificate /etc/ssl/clinic/fullchain.pem;
+    ssl_certificate_key /etc/ssl/clinic/privkey.pem;
+    root /srv/dentalclinic/frontend/dist;
+    index index.html;
+    client_max_body_size 12m;
+
+    # Do not log patient IDs, query strings or sensitive response headers here.
+    access_log off;
+
+    location ~ ^/(api/|health/|static/|admin/) {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 35s;
+    }
+
+    location /assets/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+    }
+
+    location / {
+        try_files $uri /index.html;
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy same-origin always;
+    }
+}
