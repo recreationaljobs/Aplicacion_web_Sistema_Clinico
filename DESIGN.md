@@ -7,8 +7,8 @@ Este documento describe el lenguaje visual que ya está implementado en el front
 - React 19 y Vite 8.
 - Tailwind CSS 4 mediante `@import "tailwindcss"` en `src/frontend/src/index.css`.
 - Los estilos se aplican principalmente con clases utilitarias dentro de los componentes JSX.
-- `src/frontend/src/App.css` y `src/frontend/src/pages/Auth/LoginPage.css` no contienen reglas actualmente.
-- No existe un tema personalizado de Tailwind ni una fuente web configurada. Se usan las familias del sistema provistas por `font-sans` y `font-serif`.
+- La agenda conserva sus reglas específicas en `pages/Appointments/appointments.css`; los dos CSS vacíos de la plantilla fueron retirados.
+- `index.css` define `--font-sans` con IBM Plex Sans Variable, distribuida localmente mediante `@fontsource-variable/ibm-plex-sans`. `font-serif` conserva el fallback del sistema.
 
 ## Dirección visual
 
@@ -64,7 +64,7 @@ Principios presentes en la implementación:
 
 ## Tipografía
 
-La aplicación conserva las familias predeterminadas de Tailwind:
+La aplicación define su familia principal localmente y conserva el fallback serif del sistema:
 
 - `font-sans`: interfaz, formularios, botones, navegación y textos generales.
 - `font-serif`: títulos principales del dashboard, configuración e indicadores numéricos.
