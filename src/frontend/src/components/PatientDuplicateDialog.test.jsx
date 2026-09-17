@@ -26,6 +26,23 @@ const matches = [
 afterEach(cleanup)
 
 describe('PatientDuplicateDialog', () => {
+  it('contains keyboard focus, closes with Escape, and restores the opener', () => {
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    opener.focus()
+    const onBack = vi.fn()
+    const { unmount } = render(<PatientDuplicateDialog matches={[matches[0]]} onBack={onBack} onContinue={vi.fn()} />)
+    const last = screen.getByRole('button', { name: 'Crear de todos modos' })
+    expect(screen.getByRole('button', { name: 'Volver' })).toHaveFocus()
+    last.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(screen.getByRole('button', { name: 'Volver' })).toHaveFocus()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onBack).toHaveBeenCalledOnce()
+    unmount()
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
   it('renders nothing without matches', () => {
     const { container } = render(<PatientDuplicateDialog matches={[]} />)
 

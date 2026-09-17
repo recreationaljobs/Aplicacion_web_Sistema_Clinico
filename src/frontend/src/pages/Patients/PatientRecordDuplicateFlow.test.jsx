@@ -91,6 +91,14 @@ function fillRequiredCreateFields() {
 }
 
 describe('PatientRecordPage duplicate warning flow', () => {
+  it('collects a clinical reason while preserving receptionist permissions', async () => {
+    getPatient.mockResolvedValue({ ...patient, version: 1, clinical_record: { allergies: 'Original' } })
+    renderPage({ isNew: false, route: '/pacientes/7/editar' })
+    fireEvent.change(await screen.findByLabelText('Alergias'), { target: { value: 'Clarified' } })
+    fireEvent.change(screen.getByLabelText('Motivo del cambio clínico'), { target: { value: 'Patient clarification' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await waitFor(() => expect(updatePatient).toHaveBeenCalledWith('access-token', '7', expect.objectContaining({ clinical_change_reason: 'Patient clarification', expected_version: 1 })))
+  })
   beforeEach(() => {
     checkPatientDuplicates.mockResolvedValue({ has_matches: false, matches: [] })
     createPatient.mockResolvedValue(patient)

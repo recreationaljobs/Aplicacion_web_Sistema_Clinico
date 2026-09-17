@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from apps.common.versioning import VersionedSerializer
 
 from apps.patients.models import Patient
 from apps.users.models import User
@@ -56,7 +57,7 @@ def has_overlap(*, date, start_time, duration_minutes, dentist=None, patient=Non
     return False
 
 
-class AppointmentSerializer(serializers.ModelSerializer):
+class AppointmentSerializer(VersionedSerializer):
     reschedule_reason = serializers.CharField(
         write_only=True,
         required=False,
@@ -79,7 +80,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Appointment
         fields = (
-            "id", "patient", "patient_name", "patient_code", "patient_is_active",
+            "id", "version", "expected_version", "patient", "patient_name", "patient_code", "patient_is_active",
             "dentist", "dentist_name",
             "service", "service_name",
             "date", "start_time", "end_time", "duration_minutes", "reason", "notes",
@@ -128,6 +129,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         instance = self.instance
         if not instance and "reschedule_reason" in attrs:
             raise serializers.ValidationError({

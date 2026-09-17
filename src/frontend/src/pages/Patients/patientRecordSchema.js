@@ -8,5 +8,5 @@ export const patientFields = [
 
 export const recordFields = [
   'allergies', 'current_medications', 'relevant_conditions', 'other_clinical_alerts',
-  'family_history', 'radiographic_exams', 'clinical_photographs',
+  'present_illness_history', 'family_history', 'radiographic_exams', 'clinical_photographs',
 ]

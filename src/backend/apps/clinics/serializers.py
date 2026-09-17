@@ -26,7 +26,7 @@ class ClinicProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClinicProfile
         fields = (
-            "id", "name", "tagline", "phone", "email", "address", "logo",
+            "id", "name", "phone", "email", "address", "logo",
             "logo_url", "remove_logo", "currency", "timezone",
             "schedule_configured", "updated_at",
         )

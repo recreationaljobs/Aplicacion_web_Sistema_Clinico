@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import MenuIcon from '../../components/MenuIcon'
 import { listAllAppointments } from '../../services/appointmentService'
 import { listPatientDashboardSummary, listRecentConsultations } from '../../services/patientService'
 import { formatClock, statusTone, todayValue } from '../Appointments/appointmentDisplay'
 import { useClinic } from '../../context/clinicContextValue'
-
-const initials = (patient) => `${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase()
 
 const consultationInitials = (consultation) => consultation.patient_name
   .split(/\s+/)
@@ -26,14 +25,15 @@ const formatToday = (value) => {
   return `${formatted.charAt(0).toUpperCase()}${formatted.slice(1)}`
 }
 
-function StatCard({ label, value, icon, tone }) {
+function StatCard({ label, value, icon, tone, error }) {
   return (
     <article aria-label={label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div>
         <p className="text-xs font-semibold text-slate-500">{label}</p>
-        <p className="mt-1 font-serif text-3xl text-slate-900">{value}</p>
+        <p className="mt-1 font-sans text-3xl text-slate-900">{value}</p>
+        {error ? <p role="alert" className="mt-2 text-xs text-red-700">{error}</p> : null}
       </div>
-      <span aria-hidden="true" className={`grid h-11 w-11 place-items-center rounded-xl text-lg ${tone}`}>{icon}</span>
+      <span aria-hidden="true" className={`grid h-11 w-11 place-items-center rounded-xl ${tone}`}><MenuIcon name={icon} className="h-5 w-5 shrink-0" /></span>
     </article>
   )
 }
@@ -85,7 +85,6 @@ export default function DashboardPage({ user, accessToken }) {
   const { profile } = useClinic()
   const navigate = useNavigate()
   const [patientTotal, setPatientTotal] = useState(0)
-  const [recentlyAttendedPatients, setRecentlyAttendedPatients] = useState([])
   const [patientsLoading, setPatientsLoading] = useState(true)
   const [patientsError, setPatientsError] = useState('')
   const [appointments, setAppointments] = useState([])
@@ -109,7 +108,6 @@ export default function DashboardPage({ user, accessToken }) {
   const showRecentConsultations = canViewConsultations && (
     isAdministrator || isDentist || (isReceptionist && canViewTeamConsultations)
   )
-  const showRecentPatients = canViewPatients && !isDentist
   const hasPersonalAgenda = canViewAppointments && !canViewTeamAppointments
 
   useEffect(() => {
@@ -125,7 +123,6 @@ export default function DashboardPage({ user, accessToken }) {
       .then((data) => {
         if (active) {
           setPatientTotal(data.total_patients)
-          setRecentlyAttendedPatients(data.recently_attended)
         }
       })
       .catch((requestError) => { if (active) setPatientsError(requestError.message) })
@@ -173,7 +170,7 @@ export default function DashboardPage({ user, accessToken }) {
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Resumen del día</p>
-          <h1 className="font-serif text-3xl font-semibold tracking-tight text-slate-900">Bienvenido, Dr. {name}</h1>
+          <h1 className="font-sans text-3xl font-semibold tracking-tight text-slate-900">Bienvenido, Dr. {name}</h1>
           <p className="mt-1 text-sm text-slate-500">{formatToday(currentDate)}</p>
         </div>
         <div className="flex gap-2">
@@ -183,11 +180,11 @@ export default function DashboardPage({ user, accessToken }) {
       </section>
 
       <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2">
-        <StatCard label="Total pacientes" value={patientsLoading || patientsError ? '—' : String(patientTotal)} icon="♟" tone="bg-blue-50 text-blue-700" />
-        <StatCard label="Citas de hoy" value={appointmentsLoading ? '—' : String(appointments.length)} icon="▣" tone="bg-emerald-50 text-emerald-700" />
+        <StatCard label="Total pacientes" value={patientsLoading || patientsError ? '—' : String(patientTotal)} icon="patients" tone="bg-blue-50 text-blue-700" error={patientsError} />
+        <StatCard label="Citas de hoy" value={appointmentsLoading ? '—' : String(appointments.length)} icon="appointments" tone="bg-emerald-50 text-emerald-700" />
       </section>
 
-      <section className="grid min-h-80 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]">
+      <section className={`grid min-h-80 gap-4 ${showRecentConsultations ? 'lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)]' : ''}`}>
         <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <div><h2 className="font-semibold text-slate-900">Citas de hoy</h2><p className="text-xs text-slate-400">{hasPersonalAgenda ? 'Tu agenda del día' : 'Agenda del día'}</p></div>
@@ -216,41 +213,15 @@ export default function DashboardPage({ user, accessToken }) {
           </ul> : null}
         </article>
 
-        <div className="grid content-start gap-4">
-          {showRecentConsultations ? <RecentConsultationsCard
+        {showRecentConsultations ? <div className="grid content-start gap-4">
+          <RecentConsultationsCard
             consultations={recentConsultations}
             error={recentConsultationsError}
             loading={recentConsultationsLoading}
             personal={!canViewTeamConsultations}
             showProfessional={canViewTeamConsultations}
-          /> : null}
-
-          {showRecentPatients ? <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-            <div><h2 className="font-semibold text-slate-900">Pacientes recientes</h2><p className="text-xs text-slate-400">Últimas atenciones</p></div>
-            <Link to="/pacientes" className="text-xs font-semibold text-blue-700 no-underline hover:underline">Ver todos →</Link>
-          </div>
-          {patientsLoading ? <div className="grid min-h-56 place-content-center px-6 py-10 text-center"><p className="text-sm text-slate-500">Cargando pacientes…</p></div> : null}
-          {!patientsLoading && patientsError ? <div className="grid min-h-56 place-content-center px-6 py-10 text-center"><p role="alert" className="text-sm text-red-700">{patientsError}</p></div> : null}
-          {!patientsLoading && !patientsError && recentlyAttendedPatients.length === 0 ? <div className="grid min-h-56 place-content-center px-6 py-10 text-center">
-            <span aria-hidden="true" className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-slate-100 text-xl text-slate-500">♟</span>
-            <p className="text-sm font-semibold text-slate-700">No hay pacientes atendidos recientemente.</p>
-            <p className="mt-1 text-xs text-slate-400">Las consultas completadas aparecerán aquí.</p>
-          </div> : null}
-          {!patientsLoading && !patientsError && recentlyAttendedPatients.length > 0 ? <ul className="divide-y divide-slate-100">
-            {recentlyAttendedPatients.map((patient) => <li key={patient.id}>
-              <Link to={`/pacientes/${patient.id}`} aria-label={`Ver expediente de ${patient.full_name}`} className="flex items-center gap-3 px-5 py-4 no-underline transition hover:bg-slate-50">
-                <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-xs font-bold text-blue-700">{initials(patient)}</span>
-                <span className="min-w-0">
-                  <strong className="block truncate text-sm text-slate-800">{patient.full_name}</strong>
-                  <small className="block text-xs text-slate-500">{patient.code}</small>
-                </span>
-                <span aria-hidden="true" className="ml-auto text-sm text-blue-700">›</span>
-              </Link>
-            </li>)}
-          </ul> : null}
-          </article> : null}
-        </div>
+          />
+        </div> : null}
       </section>
     </div>
   )

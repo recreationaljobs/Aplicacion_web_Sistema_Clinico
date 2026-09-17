@@ -22,7 +22,7 @@ export default function ClinicProfilePanel({ accessToken }) {
     setSaving(true)
     setMessage('')
     const data = new FormData()
-    ;['name', 'tagline', 'phone', 'email', 'address', 'currency', 'timezone'].forEach((key) => data.append(key, values[key] || ''))
+    ;['name', 'phone', 'email', 'address', 'currency', 'timezone'].forEach((key) => data.append(key, values[key] || ''))
     if (logo) data.append('logo', logo)
     try {
       const saved = await updateClinicProfile(accessToken, data)
@@ -40,7 +40,7 @@ export default function ClinicProfilePanel({ accessToken }) {
   return <section className="rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="clinic-profile-title">
     <form onSubmit={submit}>
       <header className="flex items-start justify-between gap-4 border-b border-slate-100 p-5">
-        <div><h2 id="clinic-profile-title" className="font-serif text-2xl font-semibold text-slate-900">Perfil de la clínica</h2><p className="mt-1 text-xs text-slate-500">Identidad, contacto y preferencias regionales.</p></div>
+        <div><h2 id="clinic-profile-title" className="font-sans text-2xl font-semibold text-slate-900">Perfil de la clínica</h2><p className="mt-1 text-xs text-slate-500">Identidad, contacto y preferencias regionales.</p></div>
         <button disabled={saving} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{saving ? 'Guardando…' : 'Guardar cambios'}</button>
       </header>
       <div className="grid gap-6 p-5 md:grid-cols-[170px_1fr]">
@@ -50,8 +50,7 @@ export default function ClinicProfilePanel({ accessToken }) {
           <p className="mt-2 text-[11px] text-slate-400">PNG, JPEG o WebP · máximo 2 MB</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nombre de la clínica"><input required name="name" value={values.name || ''} onChange={change} /></Field>
-          <Field label="Subtítulo"><input name="tagline" value={values.tagline || ''} onChange={change} /></Field>
+          <Field label="Nombre de la clínica" wide><input required name="name" value={values.name || ''} onChange={change} /></Field>
           <Field label="Teléfono"><input name="phone" value={values.phone || ''} onChange={change} /></Field>
           <Field label="Correo electrónico"><input type="email" name="email" value={values.email || ''} onChange={change} /></Field>
           <Field label="Dirección" wide><textarea rows="3" name="address" value={values.address || ''} onChange={change} /></Field>

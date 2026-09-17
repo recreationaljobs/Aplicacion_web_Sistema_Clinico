@@ -59,6 +59,10 @@ npm run lint
 npm run build
 ```
 
+### Actualización del buscador — 16 de septiembre de 2026
+
+El buscador de la cita muestra resultados directamente bajo un solo campo. Cuando no encuentra coincidencias sigue ofreciendo Crear paciente únicamente con permiso; el paciente creado o elegido por duplicate-check aparece en el resumen seleccionado. Cambiar paciente conserva los demás datos del formulario. Las 68 pruebas de los cinco componentes de agenda, buscador, alta rápida y seguimiento pasan; el flujo se verifica además con Chromium en escritorio y móvil. Evidencia y comandos en [HU-18](HU-18-appointment-scheduling.md#selección-directa-de-paciente--16-de-septiembre-de-2026).
+
 ## Fuera de alcance
 
 No se implementaron HU-17, reactivación, pacientes provisionales, cambios de

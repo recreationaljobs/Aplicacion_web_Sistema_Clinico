@@ -39,6 +39,24 @@ describe('LoginPage', () => {
       '/recuperar-contrasena',
     )
   })
+  it('shows and hides the password without changing it or submitting the form', () => {
+    renderPage()
+    const password = screen.getByLabelText('Contraseña')
+    const loginCalls = authService.login.mock.calls.length
+    fireEvent.change(password, { target: { value: 'ContraseñaDePrueba123!' } })
+    expect(password).toHaveAttribute('type', 'password')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar contraseña' }))
+    expect(password).toHaveAttribute('type', 'text')
+    expect(password).toHaveValue('ContraseñaDePrueba123!')
+    expect(screen.getByRole('button', { name: 'Ocultar contraseña' })).toHaveAttribute('aria-pressed', 'true')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ocultar contraseña' }))
+    expect(password).toHaveAttribute('type', 'password')
+    expect(password).toHaveValue('ContraseñaDePrueba123!')
+    expect(authService.login.mock.calls).toHaveLength(loginCalls)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
   it('uses localized input guidance and reserves space for its images', () => {
     const { container } = renderPage()
 

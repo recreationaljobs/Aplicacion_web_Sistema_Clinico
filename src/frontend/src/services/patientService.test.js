@@ -35,6 +35,19 @@ vi.mock('./api', () => ({
 }))
 
 describe('patientService', () => {
+  it('keeps consultation options beyond the first hundred available', async () => {
+    const first = Array.from({ length: 100 }, (_, id) => ({ id: id + 1 }))
+    apiRequest.mockResolvedValueOnce({ count: 101, next: '?page=2', results: first })
+      .mockResolvedValueOnce({ count: 101, next: null, results: [{ id: 101 }] })
+    const result = await patientService.listPatientConsultationOptions('token', 7)
+    expect(result).toHaveLength(101)
+    expect(result[100].id).toBe(101)
+    expect(apiRequest).toHaveBeenLastCalledWith(
+      '/api/patients/7/consultations/?compact=true&page_size=100&page=2',
+      { headers: { Authorization: 'Bearer token' } },
+    )
+  })
+
   beforeEach(() => {
     apiRequest.mockReset()
     apiBlobRequest.mockReset()
@@ -357,10 +370,11 @@ describe('patientService', () => {
     expect(options.body.get('tooth_code')).toBe('16')
   })
 
-  it('loads bounded minimal consultation options for document context', () => {
+  it('loads bounded minimal consultation options for document context', async () => {
     expect(patientService.listPatientConsultationOptions).toBeTypeOf('function')
 
-    patientService.listPatientConsultationOptions('token', 7)
+    apiRequest.mockResolvedValueOnce([])
+    await patientService.listPatientConsultationOptions('token', 7)
 
     expect(apiRequest).toHaveBeenCalledWith(
       '/api/patients/7/consultations/?compact=true&page_size=100',

@@ -1,3 +1,5 @@
+import Dialog from './Dialog'
+
 const reasonLabels = {
   phone: 'Coincide el teléfono',
   name_and_date_of_birth: 'Coinciden nombre y fecha de nacimiento',
@@ -13,10 +15,9 @@ export default function PatientDuplicateDialog({
 }) {
   if (matches.length === 0) return null
 
-  return <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/45 p-4 backdrop-blur-[2px]">
-    <section role="dialog" aria-modal="true" aria-labelledby="patient-duplicate-title" className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl">
+  return <Dialog onClose={busy ? undefined : onBack} aria-labelledby="patient-duplicate-title" className="w-full max-w-2xl rounded-2xl border border-amber-200 bg-white p-6 shadow-2xl">
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-700">Revisión administrativa</p>
-      <h2 id="patient-duplicate-title" className="mt-1 font-serif text-2xl font-semibold text-slate-900">Posible paciente duplicado</h2>
+      <h2 id="patient-duplicate-title" className="mt-1 font-sans text-2xl font-semibold text-slate-900">Posible paciente duplicado</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">Encontramos registros con datos similares. Revisa las coincidencias antes de continuar.</p>
 
       <ul className="mt-5 space-y-3">
@@ -46,6 +47,5 @@ export default function PatientDuplicateDialog({
         <button type="button" disabled={busy} onClick={onBack} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Volver</button>
         <button type="button" disabled={busy} onClick={onContinue} className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60">{busy ? 'Creando…' : 'Crear de todos modos'}</button>
       </div>
-    </section>
-  </div>
+  </Dialog>
 }

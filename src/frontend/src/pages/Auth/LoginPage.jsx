@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const { signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -44,7 +45,16 @@ export default function LoginPage() {
             <label htmlFor="email" className="text-sm font-bold mb-1.5">Correo electrónico</label>
             <input id="email" name="email" type="email" value={form.email} onChange={change} placeholder="nombre@clinica.com" autoComplete="email" inputMode="email" spellCheck="false" className="mb-4 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" />
             <label htmlFor="password" className="text-sm font-bold mb-1.5">Contraseña</label>
-            <input id="password" name="password" type="password" value={form.password} onChange={change} placeholder="Tu contraseña…" autoComplete="current-password" className="mb-4 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" />
+            <div className="relative mb-4">
+              <input id="password" name="password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={change} placeholder="Tu contraseña…" autoComplete="current-password" className="w-full rounded-lg border border-slate-300 py-3 pl-3 pr-12 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" />
+              <button type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPassword} aria-controls="password" className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-slate-500 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                  {showPassword ? <path d="m3 3 18 18" /> : null}
+                </svg>
+              </button>
+            </div>
             <div className="flex justify-end items-center mb-10 text-xs">
               {passwordResetEnabled ? <Link to="/recuperar-contrasena" className="text-[#252525] no-underline font-semibold">¿Has olvidado tu contraseña?</Link> : <p>Para cambiar tu contraseña, contacta al administrador de la demo.</p>}
             </div>

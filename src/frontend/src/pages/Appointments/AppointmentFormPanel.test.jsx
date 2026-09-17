@@ -81,12 +81,13 @@ describe('AppointmentFormPanel patient search', () => {
   it('does not search on open or below two characters and debounces valid text', async () => {
     renderPanel()
 
+    expect(screen.queryByLabelText(/Notas/)).not.toBeInTheDocument()
     expect(searchPatientOptions).not.toHaveBeenCalled()
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'A' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'A' } })
     await advance(400)
     expect(searchPatientOptions).not.toHaveBeenCalled()
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'An' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'An' } })
     await advance(299)
     expect(searchPatientOptions).not.toHaveBeenCalled()
     await advance(1)
@@ -98,24 +99,21 @@ describe('AppointmentFormPanel patient search', () => {
     )
   })
 
-  it('shows loading, preserves the selection, and submits the patient id', async () => {
+  it('shows loading, selects a result directly, and submits the patient id', async () => {
     const pending = deferredPromise()
-    searchPatientOptions.mockReturnValueOnce(pending.promise).mockResolvedValueOnce([])
+    searchPatientOptions.mockReturnValueOnce(pending.promise)
     const { props } = renderPanel()
     await act(async () => {})
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Ana' } })
     await advance(300)
     expect(screen.getByText('Buscando pacientes…')).toBeInTheDocument()
 
     await act(async () => pending.resolve([patient]))
-    expect(screen.getByRole('option', { name: 'Ana Pérez · PAC-00007' })).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Paciente'), { target: { value: '7' } })
+    expect(screen.getByRole('option', { name: /Ana Pérez.*PAC-00007/ })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('option', { name: /Ana Pérez.*PAC-00007/ }))
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Otro' } })
-    await advance(300)
-    expect(screen.getByRole('option', { name: 'Ana Pérez · PAC-00007' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Paciente')).toHaveValue('7')
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00007')
 
     fireEvent.change(screen.getByLabelText('Odontólogo'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Control' } })
@@ -131,14 +129,14 @@ describe('AppointmentFormPanel patient search', () => {
     const { props } = renderPanel()
     await act(async () => {})
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Ana' } })
     await advance(300)
 
     const option = screen.getByRole('option', {
-      name: 'Ana Pérez · PAC-00007 · Perfil incompleto',
+      name: /Ana Pérez.*PAC-00007.*Perfil incompleto/,
     })
     expect(option).not.toBeDisabled()
-    fireEvent.change(screen.getByLabelText('Paciente'), { target: { value: '7' } })
+    fireEvent.click(screen.getByRole('option', { name: /Ana Pérez.*PAC-00007/ }))
     fireEvent.change(screen.getByLabelText('Odontólogo'), { target: { value: '3' } })
     fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Valoración' } })
     fireEvent.click(screen.getByRole('button', { name: 'Programar cita' }))
@@ -150,7 +148,7 @@ describe('AppointmentFormPanel patient search', () => {
   it('explains when a valid search has no results', async () => {
     renderPanel()
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Nadie' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Nadie' } })
     await advance(300)
 
     expect(screen.getByText('No encontramos pacientes.')).toBeInTheDocument()
@@ -159,7 +157,7 @@ describe('AppointmentFormPanel patient search', () => {
   it('[HU-52] offers inline creation after an empty search only with patient-create permission', async () => {
     renderPanel({ canCreatePatient: true })
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Paciente nuevo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Paciente nuevo' } })
     await advance(300)
 
     expect(screen.getByRole('button', { name: 'Crear paciente' })).toBeInTheDocument()
@@ -168,7 +166,7 @@ describe('AppointmentFormPanel patient search', () => {
   it('[HU-52] hides inline creation without patient-create permission', async () => {
     renderPanel({ canCreatePatient: false })
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Paciente nuevo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Paciente nuevo' } })
     await advance(300)
 
     expect(screen.getByText('No encontramos pacientes.')).toBeInTheDocument()
@@ -177,7 +175,7 @@ describe('AppointmentFormPanel patient search', () => {
 
   it('[HU-52] opens and closes quick-create without abandoning the appointment', async () => {
     renderPanel({ canCreatePatient: true })
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Paciente nuevo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Paciente nuevo' } })
     await advance(300)
 
     fireEvent.click(screen.getByRole('button', { name: 'Crear paciente' }))
@@ -191,7 +189,7 @@ describe('AppointmentFormPanel patient search', () => {
   it('[HU-52] selects the new incomplete patient and continues the unchanged appointment form', async () => {
     const { props } = renderPanel({ canCreatePatient: true })
     fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Valoración inicial' } })
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Paciente nuevo' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Paciente nuevo' } })
     await advance(300)
     fireEvent.click(screen.getByRole('button', { name: 'Crear paciente' }))
 
@@ -207,10 +205,8 @@ describe('AppointmentFormPanel patient search', () => {
     await act(async () => {})
 
     expect(screen.queryByRole('dialog', { name: 'Alta rápida de paciente' })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Paciente')).toHaveValue('20')
-    expect(screen.getByRole('option', {
-      name: 'Paciente Rápido · PAC-00020 · Perfil incompleto',
-    })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('Paciente Rápido')
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00020')
     expect(screen.getByText('Perfil incompleto')).toBeInTheDocument()
     expect(screen.getByLabelText('Motivo')).toHaveValue('Valoración inicial')
     expect(props.onSave).not.toHaveBeenCalled()
@@ -221,7 +217,7 @@ describe('AppointmentFormPanel patient search', () => {
     searchPatientOptions.mockRejectedValue(new Error('No fue posible buscar pacientes.'))
     renderPanel()
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Error' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Error' } })
     await advance(300)
 
     expect(screen.getByRole('alert')).toHaveTextContent('No fue posible buscar pacientes.')
@@ -232,12 +228,12 @@ describe('AppointmentFormPanel patient search', () => {
     searchPatientOptions.mockReturnValue(new Promise(() => {}))
     renderPanel()
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Ana' } })
     await advance(300)
     const firstSignal = searchPatientOptions.mock.calls[0][2]
     expect(firstSignal.aborted).toBe(false)
 
-    fireEvent.change(screen.getByLabelText('Buscar paciente'), { target: { value: 'Elena' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Paciente' }), { target: { value: 'Elena' } })
 
     expect(firstSignal.aborted).toBe(true)
   })
@@ -259,8 +255,8 @@ describe('AppointmentFormPanel patient search', () => {
     })
     await act(async () => {})
 
-    expect(screen.getByLabelText('Paciente')).toHaveValue('7')
-    expect(screen.getByRole('option', { name: 'Ana Pérez · PAC-00007' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00007')
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('Ana Pérez')
     expect(screen.getByLabelText('Odontólogo')).toHaveValue('3')
     expect(screen.getByLabelText(/Servicio/)).toHaveValue('4')
     expect(screen.getByLabelText('Duración')).toHaveValue('45')
@@ -332,5 +328,116 @@ describe('AppointmentFormPanel patient search', () => {
       start_time: '10:00',
       reschedule_reason: 'Solicitud del paciente',
     }))
+  })
+
+  it('keeps a closed-day warning beside the blocked submit button while other fields are edited', async () => {
+    getAvailableDentists.mockRejectedValue(new Error('La clínica está cerrada ese día.'))
+    const { props } = renderPanel({
+      selectedDate: '2026-09-19', initialPatient: patient, initialDentist: dentist,
+      initialValues: { patient: 7, dentist: 3, reason: 'Control' },
+    })
+    await act(async () => {})
+
+    const actions = screen.getByRole('region', { name: 'Acciones de la cita' })
+    expect(within(actions).getByRole('alert')).toHaveTextContent('La clínica está cerrada ese día.')
+    expect(within(actions).getByRole('alert')).toHaveTextContent(/sábado/i)
+    expect(screen.getByRole('button', { name: 'Programar cita' })).toBeDisabled()
+    expect(screen.queryByRole('option', { name: dentist.full_name })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Control actualizado' } })
+    expect(within(actions).getByRole('alert')).toHaveTextContent('La clínica está cerrada ese día.')
+    fireEvent.submit(screen.getByRole('button', { name: 'Programar cita' }).closest('form'))
+    await act(async () => {})
+    expect(props.onSave).not.toHaveBeenCalled()
+  })
+
+  it('enables scheduling again after a different date has confirmed availability', async () => {
+    getAvailableDentists.mockRejectedValueOnce(new Error('La clínica está cerrada ese día.'))
+    const pending = deferredPromise()
+    getAvailableDentists.mockReturnValueOnce(pending.promise)
+    const { props } = renderPanel({
+      selectedDate: '2026-09-19', initialPatient: patient, initialDentist: dentist,
+      initialValues: { patient: 7, dentist: 3, reason: 'Control' },
+    })
+    await act(async () => {})
+    expect(screen.getByRole('button', { name: 'Programar cita' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Fecha'), { target: { value: '2026-09-21' } })
+    expect(screen.getByRole('button', { name: 'Programar cita' })).toBeDisabled()
+    await act(async () => pending.resolve([dentist]))
+    expect(screen.queryByText('La clínica está cerrada ese día.')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00007')
+    fireEvent.change(screen.getByLabelText('Odontólogo'), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Programar cita' }))
+    await act(async () => {})
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-09-21', patient: 7 }))
+  })
+
+  it('shows a booking API rejection beside the submit button without losing entered data', async () => {
+    renderPanel({
+      initialPatient: patient, initialValues: { patient: 7, dentist: 3, reason: 'Control' },
+      onSave: vi.fn().mockRejectedValue(new Error('El paciente ya tiene una cita en ese horario.')),
+    })
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Programar cita' }))
+    await act(async () => {})
+    expect(within(screen.getByRole('region', { name: 'Acciones de la cita' })).getByRole('alert')).toHaveTextContent('El paciente ya tiene una cita en ese horario.')
+    expect(screen.getByLabelText('Motivo')).toHaveValue('Control')
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('PAC-00007')
+  })
+
+  it('explains an empty dentist availability result beside the disabled submit button', async () => {
+    getAvailableDentists.mockResolvedValue([])
+    renderPanel()
+    await act(async () => {})
+    expect(screen.getByRole('button', { name: 'Programar cita' })).toBeDisabled()
+    expect(within(screen.getByRole('region', { name: 'Acciones de la cita' })).getByRole('alert')).toHaveTextContent('No hay odontólogos disponibles para este horario.')
+  })
+
+  it('selects a patient directly from suggestions beneath a single search field', async () => {
+    searchPatientOptions.mockResolvedValue([patient])
+    const { props } = renderPanel()
+    await act(async () => {})
+    const input = screen.getByRole('combobox', { name: 'Paciente' })
+    fireEvent.change(input, { target: { value: 'Ana' } })
+    await advance(300)
+    fireEvent.click(screen.getByRole('option', { name: /Ana Pérez.*PAC-00007/ }))
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('Ana Pérez')
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('8888-1111')
+    fireEvent.change(screen.getByLabelText('Odontólogo'), { target: { value: '3' } })
+    fireEvent.change(screen.getByLabelText('Motivo'), { target: { value: 'Control' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Programar cita' }))
+    await act(async () => {})
+    expect(props.onSave).toHaveBeenCalledWith(expect.objectContaining({ patient: 7 }))
+  })
+
+  it('corrects a typo in the same field and selects a result with arrows and Enter', async () => {
+    searchPatientOptions.mockResolvedValueOnce([]).mockResolvedValueOnce([patient])
+    renderPanel()
+    const input = screen.getByRole('combobox', { name: 'Paciente' })
+    fireEvent.change(input, { target: { value: 'Anaa' } })
+    await advance(300)
+    expect(screen.getByText('No encontramos pacientes.')).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: 'Ana' } })
+    await advance(300)
+    fireEvent.keyDown(input, { key: 'ArrowDown' })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(screen.getByRole('group', { name: 'Paciente seleccionado' })).toHaveTextContent('Ana Pérez')
+  })
+
+  it('clears the old patient when changing selection and never submits unresolved search text', async () => {
+    searchPatientOptions.mockResolvedValue([patient])
+    const { props } = renderPanel({
+      initialPatient: patient, initialValues: { patient: 7, dentist: 3, reason: 'Control' },
+    })
+    await act(async () => {})
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar paciente' }))
+    const input = screen.getByRole('combobox', { name: 'Paciente' })
+    expect(input).toHaveFocus()
+    fireEvent.change(input, { target: { value: 'Ana' } })
+    await advance(300)
+    fireEvent.submit(screen.getByRole('button', { name: 'Programar cita' }).closest('form'))
+    await act(async () => {})
+    expect(props.onSave).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('Selecciona un paciente de los resultados.')
+    expect(screen.getByLabelText('Motivo')).toHaveValue('Control')
   })
 })

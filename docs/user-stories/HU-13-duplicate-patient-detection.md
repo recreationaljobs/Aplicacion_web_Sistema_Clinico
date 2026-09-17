@@ -66,3 +66,7 @@ npm run build
 
 No se implementaron coincidencias difusas, trigramas, Levenshtein, IA,
 fusión, reactivación ni deduplicación automática.
+
+## Formato de cédula validado el 16 de septiembre de 2026
+
+Las entradas de cédula se guardan con guiones y letra mayúscula. Se mantienen las equivalencias de la clave normalizada: una entrada compacta o con espacios no permite registrar otra vez la misma cédula; reformatear la identificación del propio paciente continúa permitido. Regresiones correctas dentro de las 88 pruebas de API/perfil/duplicados de este ajuste; contrato de formato documentado en HU-53.

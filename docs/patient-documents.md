@@ -1,52 +1,47 @@
 # Documentos clínicos del paciente
 
-La pestaña **Documentos** administra adjuntos privados vinculados exclusivamente al paciente. No reutiliza `radiographic_exams` ni `clinical_photographs`, y no relaciona archivos con consultas.
+Los documentos pertenecen a un paciente y pueden asociarse opcionalmente a una consulta del mismo expediente y a una pieza FDI. El contexto es explícito; no se infiere de fechas ni se modifica el historial existente.
 
 ## Permisos y reglas
 
-- `documents.view`: lista, previsualización y descarga.
-- `documents.create`: carga de nuevos documentos.
-- `documents.delete`: borrado físico definitivo.
-- Administración tiene acceso implícito completo. Los presets iniciales de Recepción y Odontología incluyen vista y creación, pero no borrado.
-- Los pacientes inactivos mantienen lectura y descarga; carga y borrado quedan bloqueados tanto en la interfaz como en la API.
-- La comprobación del paciente forma parte de cada consulta y evita acceder a un documento usando el identificador de otro expediente.
+- `documents.view`: listado, vista previa y descarga autenticada.
+- `documents.create`: carga de documentos; requiere paciente activo y cargas habilitadas.
+- `documents.delete`: retiro lógico, con motivo obligatorio. Conserva archivo, actor y fecha.
+- Administración puede listar retirados con `?retired=true` y restaurarlos. No hay endpoint de purga física.
+- Recepción y Odontología conservan los presets configurables. Cada recurso se busca dentro de su paciente; una consulta de otro expediente se rechaza.
+- Los pacientes inactivos conservan lectura y descarga; nuevas operaciones están bloqueadas.
 
-## Archivos y almacenamiento
+## Almacenamiento y validación
 
-El contenido se guarda bajo `PRIVATE_MEDIA_ROOT`, que no se publica mediante las rutas de medios de Django. El nombre físico es un UUID dentro de `patients/<id>/documents/`; el nombre original sólo se conserva como metadato y se sanea antes de usarlo en `Content-Disposition`.
+Desarrollo/pruebas usan `PRIVATE_MEDIA_ROOT`; producción utiliza `config.storage.PrivateMediaStorage` en un bucket S3-compatible con acceso público bloqueado. El UUID y la ruta física no se exponen. Nunca publiques ese directorio ni el bucket clínico mediante el servidor web.
 
-Formatos admitidos: PDF, JPG/JPEG, PNG y WebP. La validación contrasta extensión, MIME declarado y contenido real. Los límites son 10 MB por archivo, 10 archivos y 50 MB por lote. El lote completo se valida antes de crear registros; si la persistencia falla, los archivos ya escritos se limpian.
+PDF, JPG/JPEG, PNG y WebP: hasta 10 MB por archivo, 10 archivos y 50 MB por lote. Se contrastan extensión, MIME y contenido. Los PDF se analizan con límites y se rechazan corrupción, cifrado, adjuntos e interactividad; las imágenes se decodifican y recodifican sin metadatos. Esto no equivale a un antivirus; OCR/DICOM y un servicio de cuarentena no forman parte de esta implementación.
 
-En producción, `PRIVATE_MEDIA_ROOT` debe apuntar a almacenamiento persistente y mantenerse fuera del servidor web público. Esta versión no incorpora antivirus, OCR, DICOM, versionado ni recuperación de archivos eliminados.
+El lote se valida antes de persistir y se intenta limpiar lo recién escrito ante un fallo. Una interrupción abrupta todavía requiere reconciliar objetos sin referencia. Configura retención y versionado del proveedor según la política acordada; no borres archivos clínicos al retirar un documento.
 
 ## API
 
-| Método | Ruta | Capacidad | Descripción |
-| --- | --- | --- | --- |
-| `GET` | `/api/patients/<patient_id>/documents/?category=&search=` | `documents.view` | Lista documentos por fecha descendente. |
-| `POST` | `/api/patients/<patient_id>/documents/` | `documents.create` | Carga multipart con `files`, `category`, `document_date` y `notes`. |
-| `GET` | `/api/patients/<patient_id>/documents/<id>/content/` | `documents.view` | Entrega contenido autenticado para vista previa. |
-| `GET` | `/api/patients/<patient_id>/documents/<id>/content/?download=true` | `documents.view` | Descarga usando el nombre original. |
-| `DELETE` | `/api/patients/<patient_id>/documents/<id>/` | `documents.delete` | Borra registro y archivo físico. |
-| `GET` | `/api/patients/document-categories/` | `documents.view` | Sugiere categorías globales normalizadas. |
+Prefijo: `/api/patients/<patient>/documents/`.
 
-Las respuestas de metadatos incluyen una URL relativa autenticada, nunca una ruta de almacenamiento. El contenido responde con `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` y `Content-Disposition` apropiado.
+| Método/ruta relativa | Contrato |
+|---|---|
+| `GET ?search=&category=&consultation_id=&page=` | Listado paginado, 25 por defecto y máximo 100. |
+| `POST` | Multipart: `files`, `category`, `document_date`, `notes`, `consultation_id` y `tooth_code` opcionales. |
+| `PATCH <id>/` | Actualiza clasificación/contexto, con validación del expediente asociado. |
+| `GET <id>/content/` | Vista previa autenticada. `?download=true` descarga con nombre original saneado. |
+| `DELETE <id>/` | JSON `{"reason":"motivo"}`; retiro lógico. |
+| `GET ?retired=true` | Sólo Administración; documentos retirados. |
+| `POST <id>/restore/` | Sólo Administración; restaura y registra auditoría. |
 
-## Interfaz
+`GET /api/patients/document-categories/` proporciona categorías normalizadas. Los metadatos incluyen únicamente una URL relativa autenticada. El contenido lleva `Cache-Control: private, no-store`, `nosniff` y `Content-Disposition` saneado.
 
-La ruta `/pacientes/:patientId/documentos` se carga de forma diferida. Presenta tabla en escritorio, tarjetas compactas en móvil, estados de carga/error/vacío y filtros remotos. La carga y el detalle se muestran en modales centrados —pantalla completa en móvil— con Escape, retorno de foco y foco visible.
-
-Las imágenes usan una URL de objeto temporal y los PDF un visor embebido generado desde un blob autenticado. Las URLs se revocan al cerrar. Si la API rechaza una carga, los archivos y metadatos permanecen en el formulario para corregir el problema.
+La interfaz conserva archivos y metadatos cuando una carga falla. Los blobs de previsualización se revocan al cerrar. Las opciones de consulta recorren páginas compactas de hasta 100 resultados y no desaparecen al superar el primer centenar.
 
 ## Verificación
 
-```powershell
-cd src/backend
-.\.venv\Scripts\python.exe manage.py test
-.\.venv\Scripts\python.exe manage.py makemigrations --check --dry-run
-
-cd ..\frontend
-npm test
-npm run lint
-npm run build
+```text
+python manage.py test apps.patients --settings=config.settings.test --noinput
+npm test -- src/pages/Patients/PatientDocumentsPage.test.jsx src/services/patientService.test.js
 ```
+
+El smoke y las comprobaciones del almacenamiento definitivo están en [deployment.md](deployment.md).

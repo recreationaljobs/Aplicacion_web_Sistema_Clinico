@@ -47,7 +47,7 @@ const patientFixture = {
     allergies: 'Penicilina — urticaria', current_medications: 'Losartán 50 mg',
     relevant_conditions: 'Hipertensión controlada',
     other_clinical_alerts: 'Antecedente de síncope durante procedimientos',
-    inss_number: 'INSS-9081', cema_number: 'CEMA-4402', consultation_date: '2026-08-08',
+    consultation_date: '2026-08-08',
     consultation_time: '09:30:00', dental_service: 'Valoración odontológica',
     chief_complaint: 'Dolor en molar inferior derecho.', present_illness_history: 'Dolor pulsátil de tres días.',
     respiratory: 'Sin disnea.', cardiovascular: 'Sin dolor precordial.', hepatic_renal: 'Sin alteraciones.',
@@ -57,14 +57,10 @@ const patientFixture = {
     hereditary_diseases: { allergies: false, diabetes_mellitus: true, other: '' },
     heart_rate: 72, respiratory_rate: 16, blood_pressure: '118/76', temperature: '36.6',
     weight: '68.40', height: '1.65', body_surface_area: '1.76', bmi: '25.12',
-    general_appearance: 'Consciente y orientada.', skin_and_mucosa: 'Normocoloreadas.', thorax: 'Simétrico.',
-    rib_cage: 'Sin deformidades.', breasts: 'Sin hallazgos.', lung_fields: 'Ventilados.', cardiac: 'Rítmico.',
-    abdomen_pelvis: 'Blando, depresible.', rectal_exam: 'No aplica.', musculoskeletal: 'Movilidad conservada.',
-    upper_extremities: 'Sin edema.', lower_extremities: 'Sin edema.', genitourinary: 'Sin hallazgos.',
-    gynecological_exam: 'No aplica.', neurological_exam: 'Sin déficit focal.',
-    observations_analysis: 'Paciente apta para tratamiento.', dental_diagnoses: 'Pulpitis irreversible en pieza 46.',
+    general_appearance: 'Consciente y orientada.', skin_and_mucosa: 'Normocoloreadas.',
+    dental_diagnoses: 'Pulpitis irreversible en pieza 46.',
     treatment_plan: 'Tratamiento endodóntico y corona.', budget: 'C$ 10,500.',
-    treatment_performed: 'Radiografía periapical diagnóstica.', radiographic_exams: ['periapical-46.pdf'],
+    radiographic_exams: ['periapical-46.pdf'],
     clinical_photographs: ['pieza-46-frontal.jpg'], created_at: '2026-08-08T12:00:00Z', updated_at: '2026-08-08T12:00:00Z',
   },
 }
@@ -78,24 +74,22 @@ const consultationFixture = {
   professional_name: 'Dra. Elena Rivera',
   professional_specialty: 'Endodoncia',
   professional_registration_number: 'REG-2048',
+  professional_phone: '+505 8888 4321',
   summary: 'Paciente estable. Continúa con el tratamiento indicado.',
   status: 'COMPLETADA',
   status_display: 'Completada',
   patient: 1,
   time: '09:30:00',
   examiner_national_id: '001-010180-0003C',
-  inss_number: 'INSS-9081',
-  cema_number: 'CEMA-4402',
   dental_service: 'Valoración odontológica',
   chief_complaint: 'Dolor en molar inferior derecho.',
-  present_illness_history: 'Dolor pulsátil de tres días.',
-  respiratory: 'Sin disnea.',
-  cardiovascular: 'Sin dolor precordial.',
-  hepatic_renal: '',
-  gastrointestinal: '',
-  neurological: '',
-  blood_system: '',
-  reproductive_organs: '',
+  respiratory: true,
+  cardiovascular: true,
+  hepatic_renal: false,
+  gastrointestinal: false,
+  neurological: false,
+  blood_system: false,
+  reproductive_organs: false,
   heart_rate: 72,
   respiratory_rate: 16,
   blood_pressure: '118/76',
@@ -106,24 +100,9 @@ const consultationFixture = {
   bmi: '25.12',
   general_appearance: 'Consciente y orientada.',
   skin_and_mucosa: '',
-  thorax: '',
-  rib_cage: '',
-  breasts: '',
-  lung_fields: '',
-  cardiac: '',
-  abdomen_pelvis: '',
-  rectal_exam: '',
-  musculoskeletal: '',
-  upper_extremities: '',
-  lower_extremities: '',
-  genitourinary: '',
-  gynecological_exam: '',
-  neurological_exam: '',
-  observations_analysis: 'Evolución favorable.',
   dental_diagnoses: 'Pulpitis irreversible.',
   treatment_plan: 'Tratamiento endodóntico.',
   budget: 'C$ 4,500.',
-  treatment_performed: 'Radiografía diagnóstica.',
   completed_at: '2026-08-08T16:45:00Z',
   completed_by: 3,
   completed_by_name: 'Dra. Elena Rivera',
@@ -213,6 +192,21 @@ function renderAuthenticated(
 }
 
 describe('authenticated routes', () => {
+  it('records an addendum without making the completed consultation editable', async () => {
+    const amendment = { id: 1, content: 'Clinical clarification', reason: 'Transcription correction', author_name: 'Elena', created_at: '2026-09-16T15:00:00Z' }
+    vi.stubGlobal('fetch', vi.fn((url, options = {}) => {
+      if (url.includes('/amendments/')) return Promise.resolve(jsonResponse(options.method === 'POST' ? amendment : { results: [], count: 0, next: null }))
+      if (url.endsWith('/api/patients/1/consultations/12/')) return Promise.resolve(jsonResponse(consultationFixture))
+      if (url.endsWith('/api/patients/1/')) return Promise.resolve(jsonResponse(patientFixture))
+      return Promise.resolve(jsonResponse([]))
+    }))
+    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/12')
+    fireEvent.change(await screen.findByLabelText('Motivo de la adenda'), { target: { value: amendment.reason } })
+    fireEvent.change(screen.getByLabelText('Contenido de la adenda'), { target: { value: amendment.content } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar adenda' }))
+    expect(await screen.findByText(amendment.content)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Resumen')).not.toBeInTheDocument()
+  })
   beforeEach(() => {
     localStorage.clear()
     sessionStorage.clear()
@@ -424,7 +418,8 @@ describe('authenticated routes', () => {
     fireEvent.change(screen.getByLabelText('Segundo apellido'), { target: { value: 'López' } })
     fireEvent.change(screen.getByLabelText('Lugar de nacimiento'), { target: { value: 'Managua' } })
     fireEvent.change(screen.getByLabelText('Tipo de identificación'), { target: { value: 'CEDULA' } })
-    fireEvent.change(screen.getByLabelText('Número de identificación'), { target: { value: '001-160498-0001A' } })
+    fireEvent.change(screen.getByLabelText('Número de identificación'), { target: { value: '2810904031006k' } })
+    expect(screen.getByLabelText('Número de identificación')).toHaveValue('281-090403-1006K')
     fireEvent.change(screen.getByLabelText('Género'), { target: { value: 'FEMENINO' } })
     fireEvent.change(screen.getByLabelText('Fecha de nacimiento'), { target: { value: '1998-04-16' } })
     fireEvent.change(screen.getByLabelText('Antecedentes familiares'), { target: { value: 'Madre con hipertensión arterial.' } })
@@ -441,6 +436,7 @@ describe('authenticated routes', () => {
       'hereditary_diseases',
       'infectious_diseases',
       'other_clinical_alerts',
+      'present_illness_history',
       'radiographic_exams',
       'relevant_conditions',
     ])
@@ -611,6 +607,7 @@ describe('authenticated routes', () => {
     fireEvent.change(screen.getByLabelText('Medicamentos actuales'), { target: { value: 'Metformina 850 mg' } })
     fireEvent.change(screen.getByLabelText('Condiciones médicas relevantes'), { target: { value: 'Diabetes tipo 2 controlada' } })
     fireEvent.change(screen.getByLabelText('Otras alertas clínicas'), { target: { value: 'Citas matutinas' } })
+    fireEvent.change(screen.getByLabelText('Motivo del cambio clínico'), { target: { value: 'Información aclarada por el paciente' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(submittedChanges).not.toBeNull())
@@ -641,10 +638,11 @@ describe('authenticated routes', () => {
     expect(screen.getByRole('heading', { name: 'Antecedentes familiares patológicos' })).toBeInTheDocument()
     expect(screen.getByText('Varicela')).toBeInTheDocument()
     expect(screen.getByText('Diabetes mellitus')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Historia de la enfermedad actual' })).toBeInTheDocument()
+    expect(screen.getByText(patientFixture.clinical_record.present_illness_history)).toBeInTheDocument()
     for (const heading of [
       'Datos generales de la consulta',
       'Motivo de consulta',
-      'Historia de la enfermedad actual',
       'Interrogatorio por aparatos y sistemas',
       'Examen físico',
       'Observaciones y análisis',
@@ -700,6 +698,8 @@ describe('authenticated routes', () => {
     expect(await screen.findByText('Dra. Elena Rivera')).toBeInTheDocument()
     expect(screen.getByText('Endodoncia')).toBeInTheDocument()
     expect(screen.getByText('REG-2048')).toBeInTheDocument()
+    expect(screen.getByText('Código MINSA')).toBeInTheDocument()
+    expect(screen.getByText('+505 8888 4321')).toBeInTheDocument()
   })
 
   it('shows guidance when the patient does not have consultations', async () => {
@@ -767,24 +767,96 @@ describe('authenticated routes', () => {
     expect(screen.getByLabelText('Estado')).toHaveValue('EN_PROGRESO')
     expect(screen.getByLabelText('Profesional')).toHaveValue('Usuario')
     ;[
-      'N.º de cédula del doctor', 'N.º INSS', 'N.º CEMA', 'Servicio odontológico',
-      'Tipo', 'Resumen', 'Motivo de consulta', 'Historia de la enfermedad actual',
+      'N.º de cédula del doctor', 'Servicio odontológico',
+      'Tipo', 'Resumen', 'Motivo de consulta',
       'Respiratorio', 'Cardiovascular', 'Hepático y renal', 'Gastrointestinal',
       'Neurológico', 'Sistema sanguíneo', 'Órganos reproductivos', 'Frecuencia cardíaca',
       'Frecuencia respiratoria', 'Presión arterial', 'Temperatura', 'Peso', 'Talla',
-      'Área de superficie corporal', 'IMC', 'Aspecto general', 'Piel y mucosas', 'Tórax',
-      'Caja torácica', 'Mamas', 'Campos pulmonares', 'Cardíaco', 'Abdomen y pelvis',
-      'Tacto rectal, cuando aplique', 'Musculoesquelético', 'Extremidades superiores',
-      'Extremidades inferiores', 'Genitourinario, cuando aplique', 'Examen ginecológico',
-      'Examen neurológico', 'Observaciones y análisis', 'Diagnóstico / problemas odontológicos',
-      'Plan de tratamiento', 'Presupuesto / descripción', 'Tratamiento realizado',
+      'Área de superficie corporal', 'IMC', 'Aspecto general', 'Piel y mucosas',
+      'Diagnóstico / problemas odontológicos',
+      'Plan de tratamiento', 'Presupuesto / descripción',
     ].forEach((label) => expect(screen.getByLabelText(label)).toBeInTheDocument())
+    expect(screen.queryByRole('heading', { name: 'Historia de la enfermedad actual' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Historia de la enfermedad actual')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Observaciones y análisis' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Observaciones y análisis')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Tratamiento realizado' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Tratamiento realizado')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('N.º INSS')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('N.º CEMA')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Especialidad')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('Código MINSA')).toHaveAttribute('readonly')
+    expect(screen.getByLabelText('Teléfono del profesional')).toHaveAttribute('readonly')
+    ;[
+      'Tórax', 'Caja torácica', 'Mamas', 'Campos pulmonares', 'Cardíaco',
+      'Abdomen y pelvis', 'Tacto rectal, cuando aplique', 'Musculoesquelético',
+      'Extremidades superiores', 'Extremidades inferiores', 'Genitourinario, cuando aplique',
+      'Examen ginecológico', 'Examen neurológico',
+    ].forEach((label) => expect(screen.queryByRole('textbox', { name: label })).not.toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Resumen'), { target: { value: 'Borrador' } })
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Descartar cambios' }))
     expect(await screen.findByRole('heading', { name: 'Consultas del paciente' })).toBeInTheDocument()
+  })
+
+  it('saves and reloads systems review as individual checkboxes', async () => {
+    let savedConsultation = { ...inProgressConsultationFixture, respiratory: false, cardiovascular: false }
+    const fetchMock = vi.fn((url, options = {}) => {
+      if (url.endsWith('/api/patients/1/consultations/12/')) {
+        if (options.method === 'PATCH') {
+          savedConsultation = { ...savedConsultation, ...JSON.parse(options.body) }
+        }
+        return Promise.resolve(jsonResponse(savedConsultation))
+      }
+      if (url.endsWith('/api/patients/1/')) return Promise.resolve(jsonResponse(patientFixture))
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/12')
+
+    const respiratory = await screen.findByRole('checkbox', { name: 'Respiratorio' })
+    expect(respiratory).not.toBeChecked()
+    ;[
+      'Cardiovascular', 'Hepático y renal', 'Gastrointestinal',
+      'Neurológico', 'Sistema sanguíneo', 'Órganos reproductivos',
+    ].forEach((name) => expect(screen.getByRole('checkbox', { name })).not.toBeChecked())
+    fireEvent.click(respiratory)
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Cardiovascular' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Cardiovascular' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument())
+
+    const systemValues = Object.fromEntries([
+      'respiratory', 'cardiovascular', 'hepatic_renal', 'gastrointestinal',
+      'neurological', 'blood_system', 'reproductive_organs',
+    ].map((field) => [field, savedConsultation[field]]))
+    expect(systemValues).toEqual({
+      respiratory: true, cardiovascular: false, hepatic_renal: false,
+      gastrointestinal: false, neurological: false, blood_system: false,
+      reproductive_organs: false,
+    })
+
+    cleanup()
+    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/12')
+    expect(await screen.findByRole('checkbox', { name: 'Respiratorio' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Cardiovascular' })).not.toBeChecked()
+  })
+
+  it('shows completed systems checkboxes as disabled', async () => {
+    vi.stubGlobal('fetch', vi.fn((url) => {
+      if (url.endsWith('/api/patients/1/consultations/12/')) return Promise.resolve(jsonResponse(consultationFixture))
+      if (url.endsWith('/api/patients/1/')) return Promise.resolve(jsonResponse(patientFixture))
+      throw new Error(`Unexpected request: ${url}`)
+    }))
+    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/12')
+
+    const respiratory = await screen.findByRole('checkbox', { name: 'Respiratorio' })
+    expect(respiratory).toBeChecked()
+    expect(respiratory).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'Neurológico' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Neurológico' })).toBeDisabled()
   })
 
   it('[HU-28] shows patient alerts in a consultation without copying them into it', async () => {
@@ -973,6 +1045,17 @@ describe('authenticated routes', () => {
     await waitFor(() => expect(submittedConsultation).not.toBeNull())
     expect(submittedConsultation.status).toBe('EN_PROGRESO')
     expect(submittedConsultation.chief_complaint).toBe('Dolor dental.')
+    expect(submittedConsultation).not.toHaveProperty('present_illness_history')
+    expect(submittedConsultation).not.toHaveProperty('observations_analysis')
+    expect(submittedConsultation).not.toHaveProperty('treatment_performed')
+    expect(submittedConsultation).not.toHaveProperty('inss_number')
+    expect(submittedConsultation).not.toHaveProperty('cema_number')
+    expect(submittedConsultation).not.toHaveProperty('professional_phone')
+    ;[
+      'thorax', 'rib_cage', 'breasts', 'lung_fields', 'cardiac', 'abdomen_pelvis',
+      'rectal_exam', 'musculoskeletal', 'upper_extremities', 'lower_extremities',
+      'genitourinary', 'gynecological_exam', 'neurological_exam',
+    ].forEach((field) => expect(submittedConsultation).not.toHaveProperty(field))
     expect(await screen.findByRole('heading', { name: 'Consulta general' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument()
   })
@@ -1194,13 +1277,21 @@ describe('authenticated routes', () => {
 
     fireEvent.change(screen.getByLabelText('Dirección habitual'), { target: { value: 'Residencial Las Colinas' } })
     fireEvent.change(screen.getByLabelText('Teléfono de emergencia'), { target: { value: '+505 7777 3333' } })
+    fireEvent.change(screen.getByLabelText('Historia de la enfermedad actual'), { target: { value: 'Dolor intermitente de una semana.' } })
+    fireEvent.change(screen.getByLabelText('Motivo del cambio clínico'), { target: { value: 'Actualización de antecedentes' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument())
     expect(screen.getByLabelText('Dirección habitual')).toHaveValue('Residencial Las Colinas')
     expect(screen.getByLabelText('Teléfono de emergencia')).toHaveValue('+505 7777 3333')
+    expect(screen.getByLabelText('Historia de la enfermedad actual')).toHaveValue('Dolor intermitente de una semana.')
+    expect(submittedChanges.clinical_record.present_illness_history).toBe('Dolor intermitente de una semana.')
     expect(submittedChanges.clinical_record).not.toHaveProperty('chief_complaint')
     expect(submittedChanges.clinical_record).not.toHaveProperty('blood_pressure')
+
+    cleanup()
+    renderAuthenticated('RECEPCIONISTA', false, '/pacientes/1')
+    expect(await screen.findByLabelText('Historia de la enfermedad actual')).toHaveValue('Dolor intermitente de una semana.')
   })
 
   it('[HU-10] keeps the patient record read-only without the configured permission', async () => {
@@ -1271,7 +1362,7 @@ describe('authenticated routes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Ya existe un paciente con este tipo y número de identificación.')
-    expect(screen.getByLabelText('Número de identificación')).toHaveValue('0011604980001a')
+    expect(screen.getByLabelText('Número de identificación')).toHaveValue('001-160498-0001A')
     expect(screen.getByRole('button', { name: 'Guardar cambios' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/pacientes/nuevo')
   })

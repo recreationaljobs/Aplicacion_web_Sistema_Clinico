@@ -79,7 +79,9 @@ def normalize_teeth_snapshot(teeth, dentition):
                 continue
             whole = layer.get("whole", [])
             surfaces = layer.get("surfaces", {})
-            if not isinstance(whole, list) or any(item not in whole_catalog for item in whole):
+            if not isinstance(whole, list) or any(
+                not isinstance(item, str) or item not in whole_catalog for item in whole
+            ):
                 layer_errors.append(f"Hallazgo de pieza completa inválido en {layer_name}.")
                 continue
             if not isinstance(surfaces, dict):
@@ -91,7 +93,8 @@ def normalize_teeth_snapshot(teeth, dentition):
                     layer_errors.append(f"La superficie {surface} no aplica a la pieza {tooth_code}.")
                     continue
                 if not isinstance(findings, list) or any(
-                    finding not in surface_catalog for finding in findings
+                    not isinstance(finding, str) or finding not in surface_catalog
+                    for finding in findings
                 ):
                     layer_errors.append(f"Hallazgo de superficie inválido en {layer_name}.")
                     continue

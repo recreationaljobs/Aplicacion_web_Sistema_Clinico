@@ -3,6 +3,19 @@ import { collectPaginatedResults } from './pagination'
 
 const authorization = (access) => ({ Authorization: `Bearer ${access}` })
 
+export const listClinicalRevisions = (access, patientId, consultationId, page = 1) => apiRequest(
+  `/api/patients/${patientId}/${consultationId ? `consultations/${consultationId}` : 'clinical-record'}/revisions/?page=${page}`,
+  { headers: authorization(access) },
+)
+export const listConsultationAmendments = (access, patientId, consultationId, page = 1) => apiRequest(
+  `/api/patients/${patientId}/consultations/${consultationId}/amendments/?page=${page}`,
+  { headers: authorization(access) },
+)
+export const createConsultationAmendment = (access, patientId, consultationId, amendment) => apiRequest(
+  `/api/patients/${patientId}/consultations/${consultationId}/amendments/`,
+  { method: 'POST', body: JSON.stringify(amendment), headers: authorization(access) },
+)
+
 export const listPatients = (access, search = '', page, pageSize, ordering) => {
   const query = new URLSearchParams()
   if (search.trim()) query.set('search', search.trim())
@@ -68,9 +81,11 @@ export const listPatientConsultations = (access, id, page, pageSize) => {
   })
 }
 
-export const listPatientConsultationOptions = (access, id) => apiRequest(
-  `/api/patients/${id}/consultations/?compact=true&page_size=100`,
-  { headers: authorization(access) },
+export const listPatientConsultationOptions = (access, id) => collectPaginatedResults(
+  (page) => apiRequest(
+    `/api/patients/${id}/consultations/?compact=true&page_size=100${page > 1 ? `&page=${page}` : ''}`,
+    { headers: authorization(access) },
+  ),
 )
 
 export const listRecentConsultations = (access) => apiRequest('/api/patients/consultations/recent/', {

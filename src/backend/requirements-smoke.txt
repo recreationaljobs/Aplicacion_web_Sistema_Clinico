@@ -1,0 +1,4 @@
+-r requirements-dev.txt
+
+# Optional local browser checks; not installed in the production image.
+playwright==1.55.0

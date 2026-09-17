@@ -26,7 +26,7 @@ export default function SystemFeaturesProvider({ children }) {
     {error && <button type="button" onClick={() => { setError(''); setAttempt((value) => value + 1) }} className="rounded-lg bg-blue-700 px-4 py-3 font-semibold text-white">Reintentar</button>}
   </main>
   return <SystemFeaturesContext.Provider value={features}>
-    {features.demo && <div role="note" className="sticky top-0 z-50 bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">DEMO · Solo datos ficticios. No ingreses información de pacientes reales. Cargas y recuperación por correo deshabilitadas.</div>}
+    {features.demo && <div role="note" className="sticky top-0 z-50 shrink-0 bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">DEMO · Solo datos ficticios. No ingreses información de pacientes reales. Cargas y recuperación por correo deshabilitadas.</div>}
     {children}
   </SystemFeaturesContext.Provider>
 }

@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './context/authContextValue'
 import LoginPage from './pages/Auth/LoginPage'
 import WelcomePage from './pages/Auth/WelcomePage'
@@ -23,6 +23,11 @@ const MyProfilePage = lazy(() => import('./pages/Profile/MyProfilePage'))
 
 function ProtectedLayout({ children, requiredPermission, requiredAnyPermissions }) {
   const { user } = useAuth()
+  const { pathname } = useLocation()
+  const mainRef = useRef(null)
+  useEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0
+  }, [pathname])
   if (!user) return <Navigate to="/login" replace />
   if (requiredPermission && !hasCapability(user, requiredPermission)) {
     return <Navigate to="/bienvenida" replace />
@@ -31,11 +36,11 @@ function ProtectedLayout({ children, requiredPermission, requiredAnyPermissions 
     return <Navigate to="/bienvenida" replace />
   }
   return (
-    <div className="min-h-screen bg-slate-50 md:flex">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-slate-50 md:flex-row">
       <Sidebar />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <Navbar />
-        <main className="p-5 sm:p-7 lg:p-10">{children}</main>
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7 lg:p-10">{children}</main>
       </div>
     </div>
   )

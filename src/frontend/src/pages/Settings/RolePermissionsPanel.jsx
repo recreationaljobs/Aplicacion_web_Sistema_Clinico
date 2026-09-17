@@ -97,7 +97,7 @@ export default function RolePermissionsPanel({ accessToken }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-labelledby="role-permissions-title">
       <div className="border-b border-slate-100 p-5">
-        <h2 id="role-permissions-title" className="font-serif text-xl font-semibold text-slate-900">Permisos por rol</h2>
+        <h2 id="role-permissions-title" className="font-sans text-xl font-semibold text-slate-900">Permisos por rol</h2>
         <p className="mt-1 text-xs text-slate-500">Define el acceso predeterminado de recepcionistas y odontólogos.</p>
       </div>
 
