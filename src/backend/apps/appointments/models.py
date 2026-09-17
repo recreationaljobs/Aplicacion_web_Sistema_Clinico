@@ -11,6 +11,8 @@ from django.db.models import Q
 from django.utils import timezone
 
 from .fields import PostgresDateTimeRangeField
+from apps.common.versioning import VersionedModel
+from apps.common.immutable import ImmutableModel
 
 
 BLOCKING_APPOINTMENT_STATUSES = (
@@ -33,7 +35,7 @@ def appointment_scheduled_range(appointment_date, start_time, duration_minutes):
     return DateTimeTZRange(start, end, bounds="[)")
 
 
-class Appointment(models.Model):
+class Appointment(VersionedModel):
     class Status(models.TextChoices):
         SCHEDULED = "PROGRAMADA", "Programada"
         CONFIRMED = "CONFIRMADA", "Confirmada"
@@ -82,6 +84,7 @@ class Appointment(models.Model):
     )
     cancellation_reason = models.TextField(blank=True)
     attendance_started_at = models.DateTimeField(null=True, blank=True)
+    check_in_previous_status = models.CharField(max_length=16, blank=True, default="", editable=False)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -152,6 +155,19 @@ class Appointment(models.Model):
 
     def __str__(self):
         return f"{self.patient} · {self.date} {self.start_time:%H:%M}"
+
+
+class AppointmentCheckInCorrection(ImmutableModel):
+    appointment = models.ForeignKey(
+        Appointment, on_delete=models.PROTECT, related_name="check_in_corrections"
+    )
+    changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    reason = models.CharField(max_length=1000)
+    restored_status = models.CharField(max_length=16)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
 
 
 class ImmutableRescheduleEventQuerySet(models.QuerySet):

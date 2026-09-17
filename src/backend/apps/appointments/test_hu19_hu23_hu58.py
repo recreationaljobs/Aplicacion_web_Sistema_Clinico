@@ -6,6 +6,7 @@ from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.audit.models import AuditEvent
+from apps.common.test_utils import open_clinic_days
 from apps.patients.models import Consultation, OdontogramVersion, Patient
 from apps.users.models import User
 
@@ -16,6 +17,7 @@ class AppointmentAgendaOperationsApiTests(APITestCase):
     list_url = "/api/appointments/"
 
     def setUp(self):
+        open_clinic_days()
         self.admin = User.objects.create_user(
             email="agenda-admin@example.test",
             password="SyntheticOnly123!",

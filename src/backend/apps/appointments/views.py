@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from rest_framework import generics
+from rest_framework import serializers
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
@@ -9,17 +10,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.users.models import User
+from apps.clinics.locking import serialized_schedule
 from apps.users.permissions import HasCapability, user_has_permission
 from apps.common.pagination import StandardPageNumberPagination
 from apps.patients.serializers import ConsultationSerializer
 
-from .models import Appointment, AppointmentRescheduleEvent
+from .models import Appointment, AppointmentRescheduleEvent, BLOCKING_APPOINTMENT_STATUSES
 from .services import (
     AppointmentAttendanceError,
     AppointmentCheckInError,
     check_in_appointment,
     start_attendance,
     update_appointment_with_history,
+    undo_check_in,
 )
 from .serializers import (
     DentistAvailabilityQuerySerializer,
@@ -110,6 +113,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(status=appointment_status)
         return queryset
 
+    @serialized_schedule()
     def create(self, request, *args, **kwargs):
         enforce_dentist_assignment_scope(request)
         try:
@@ -136,6 +140,7 @@ class AppointmentDetailView(generics.RetrieveUpdateAPIView):
     def get_queryset(self):
         return scope_appointments_for_user(super().get_queryset(), self.request.user)
 
+    @serialized_schedule()
     def update(self, request, *args, **kwargs):
         try:
             with transaction.atomic():
@@ -152,6 +157,7 @@ class AppointmentDetailView(generics.RetrieveUpdateAPIView):
                 )
                 serializer.is_valid(raise_exception=True)
                 changes = dict(serializer.validated_data)
+                serializer.check_version(instance, changes)
                 reschedule_reason = changes.pop("reschedule_reason", "")
                 result = update_appointment_with_history(
                     appointment=instance,
@@ -260,6 +266,27 @@ class AppointmentCheckInView(APIView):
         )
 
 
+class AppointmentUndoCheckInView(APIView):
+    permission_classes = (IsAuthenticated, HasCapability)
+    required_permissions = {"POST": "appointments.edit"}
+
+    def post(self, request, pk):
+        appointment = get_object_or_404(scope_appointments_for_user(Appointment.objects.all(), request.user), pk=pk)
+        class Payload(serializers.Serializer):
+            reason = serializers.CharField(max_length=1000, allow_blank=False)
+            expected_version = serializers.IntegerField(min_value=1)
+        payload = Payload(data=request.data)
+        payload.is_valid(raise_exception=True)
+        try:
+            result = undo_check_in(appointment_id=appointment.pk, actor=request.user, **payload.validated_data)
+        except AppointmentCheckInError as error:
+            return Response({"code": error.code, "detail": error.detail}, status=409)
+        request._request.audit_action = "APPOINTMENT_UNDO_CHECK_IN"
+        request._request.audit_patient_id = result.patient_id
+        request.audit_metadata.update({"appointment_id": result.pk, "to_status": result.status})
+        return Response(AppointmentSerializer(result).data)
+
+
 class DentistAvailabilityView(APIView):
     permission_classes = (IsAuthenticated, HasCapability)
     required_permissions = {"GET": "appointments.view"}
@@ -277,15 +304,16 @@ class DentistAvailabilityView(APIView):
                 dentists = dentists.filter(pk=request.user.pk)
             else:
                 dentists = dentists.none()
-        available = [
-            dentist
-            for dentist in dentists
-            if not has_overlap(
-                date=values["date"],
-                start_time=values["start_time"],
-                duration_minutes=values["duration_minutes"],
-                dentist=dentist,
-                exclude_id=values.get("exclude_id"),
-            )
-        ]
+        dentists = list(dentists)
+        occupied = Appointment.objects.filter(date=values["date"], dentist_id__in=[item.pk for item in dentists], status__in=BLOCKING_APPOINTMENT_STATUSES)
+        if values.get("exclude_id"):
+            occupied = occupied.exclude(pk=values["exclude_id"])
+        start = values["start_time"].hour * 60 + values["start_time"].minute
+        end = start + values["duration_minutes"]
+        blocked = {
+            item.dentist_id for item in occupied.only("dentist_id", "start_time", "duration_minutes")
+            if item.start_time.hour * 60 + item.start_time.minute < end
+            and item.start_time.hour * 60 + item.start_time.minute + item.duration_minutes > start
+        }
+        available = [dentist for dentist in dentists if dentist.pk not in blocked]
         return Response(DentistOptionSerializer(available, many=True).data)
