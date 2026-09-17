@@ -32,7 +32,7 @@ export default function Navbar() {
   }
 
   return (
-    <header className="flex min-h-16 items-center justify-end border-b border-slate-200 bg-white px-4 sm:px-6">
+    <header className="relative z-30 flex min-h-16 shrink-0 items-center justify-end border-b border-slate-200 bg-white px-4 sm:px-6">
       <div className="flex items-center gap-2">
         <div ref={menuRef} className="relative">
           <button

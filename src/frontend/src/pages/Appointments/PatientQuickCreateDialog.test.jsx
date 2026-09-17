@@ -124,7 +124,7 @@ describe('PatientQuickCreateDialog', () => {
         target: { value: identificationType },
       })
       fireEvent.change(screen.getByLabelText('Número de identificación'), {
-        target: { value: `${identificationType}-5200` },
+        target: { value: identificationType === 'CEDULA' ? '2810904031006k' : `${identificationType}-5200` },
       })
 
       fireEvent.click(screen.getByRole('button', { name: 'Crear paciente' }))
@@ -133,7 +133,7 @@ describe('PatientQuickCreateDialog', () => {
       expect(createQuickPatient).toHaveBeenCalledWith('access-token', expect.objectContaining({
         phone: '',
         identification_type: identificationType,
-        identification_number: `${identificationType}-5200`,
+        identification_number: identificationType === 'CEDULA' ? '281-090403-1006K' : `${identificationType}-5200`,
       }))
     },
   )

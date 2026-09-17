@@ -57,15 +57,12 @@ describe('DashboardPage', () => {
     expect(await screen.findByText('No hay citas programadas para hoy.')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Consultas recientes' })).toBeInTheDocument()
     expect(await screen.findByText('No hay consultas recientes.')).toBeInTheDocument()
-    expect(screen.getByText('Pacientes recientes')).toBeInTheDocument()
-    expect(screen.getByText('Últimas atenciones')).toBeInTheDocument()
-    expect(await screen.findByText('No hay pacientes atendidos recientemente.')).toBeInTheDocument()
-    expect(screen.getByText('Las consultas completadas aparecerán aquí.')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Total pacientes')).toHaveTextContent('0')
     expect(screen.queryByText('Leonel Hernández')).not.toBeInTheDocument()
   })
 
-  it('shows the total and recently attended patients from the compact summary', async () => {
+  it('keeps the patient total without displaying the recently attended patient list', async () => {
     patientService.listPatientDashboardSummary.mockResolvedValue({
       total_patients: 12,
       recently_attended: [{
@@ -85,15 +82,16 @@ describe('DashboardPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('leonel alberto hernandez alvarez')).toBeInTheDocument()
-    expect(screen.getByText('PAC-00001')).toBeInTheDocument()
+    expect(await screen.findByText('12')).toBeInTheDocument()
     expect(screen.getByLabelText('Total pacientes')).toHaveTextContent('12')
-    expect(screen.getByRole('link', { name: 'Ver expediente de leonel alberto hernandez alvarez' })).toHaveAttribute('href', '/pacientes/1')
+    expect(screen.queryByText('leonel alberto hernandez alvarez')).not.toBeInTheDocument()
+    expect(screen.queryByText('PAC-00001')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
     expect(screen.queryByText('No hay pacientes atendidos recientemente.')).not.toBeInTheDocument()
     expect(patientService.listPatients).not.toHaveBeenCalled()
   })
 
-  it('shows general consultations and recent patients to an administrator', async () => {
+  it('shows general consultations without a duplicate patient list to an administrator', async () => {
     patientService.listRecentConsultations.mockResolvedValue([recentConsultation])
     patientService.listPatientDashboardSummary.mockResolvedValue({
       total_patients: 1,
@@ -115,14 +113,14 @@ describe('DashboardPage', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Consultas recientes' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Pacientes recientes' })).toBeInTheDocument()
-    expect(screen.getByText('María García')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
+    expect(await screen.findByText('María García')).toBeInTheDocument()
     expect(screen.getByText(/Seguimiento · Dra. Elena Rivera/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver consulta de María García' })).toHaveAttribute(
       'href',
       '/pacientes/3/consultas/14',
     )
-    expect(await screen.findByText('Carlos Mendoza')).toBeInTheDocument()
+    expect(screen.queryByText('Carlos Mendoza')).not.toBeInTheDocument()
   })
 
   it('shows only personal recent consultations in the dentist side column', async () => {
@@ -163,10 +161,10 @@ describe('DashboardPage', () => {
     )
 
     expect(screen.queryByRole('heading', { name: /consultas recientes/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Pacientes recientes' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
   })
 
-  it('shows both summaries to reception with team consultation visibility', async () => {
+  it('shows the consultation summary to reception with team consultation visibility', async () => {
     patientService.listRecentConsultations.mockResolvedValue([recentConsultation])
 
     render(
@@ -183,7 +181,7 @@ describe('DashboardPage', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Consultas recientes' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Pacientes recientes' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
   })
 
   it('shows a separate error state when recent consultations cannot be loaded', async () => {
@@ -196,12 +194,12 @@ describe('DashboardPage', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las consultas.')
-    expect(screen.getByRole('heading', { name: 'Pacientes recientes' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pacientes recientes' })).not.toBeInTheDocument()
   })
 
   it('shows an independent error when the patient dashboard summary cannot be loaded', async () => {
     patientService.listPatientDashboardSummary.mockRejectedValue(
-      new Error('No se pudieron cargar los pacientes recientes.'),
+      new Error('No se pudo cargar el total de pacientes.'),
     )
 
     render(
@@ -211,7 +209,7 @@ describe('DashboardPage', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudieron cargar los pacientes recientes.',
+      'No se pudo cargar el total de pacientes.',
     )
     expect(screen.getByLabelText('Total pacientes')).toHaveTextContent('—')
   })

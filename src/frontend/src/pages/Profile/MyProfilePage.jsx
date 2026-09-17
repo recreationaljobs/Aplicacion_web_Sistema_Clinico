@@ -11,7 +11,7 @@ const roleLabels = {
   ODONTOLOGO: 'Odontólogo',
 }
 
-const emptyForm = { first_name: '', last_name: '', phone: '', email: '', current_password: '' }
+const emptyForm = { first_name: '', last_name: '', phone: '', specialty: '', professional_registration_number: '', email: '', current_password: '' }
 
 export default function MyProfilePage() {
   const { uploads } = useSystemFeatures()
@@ -36,6 +36,8 @@ export default function MyProfilePage() {
           first_name: data.first_name || '',
           last_name: data.last_name || '',
           phone: data.phone || '',
+          specialty: data.specialty || '',
+          professional_registration_number: data.professional_registration_number || '',
           email: data.email || '',
           current_password: '',
         })
@@ -90,6 +92,8 @@ export default function MyProfilePage() {
       first_name: form.first_name,
       last_name: form.last_name,
       phone: form.phone,
+      specialty: form.specialty,
+      professional_registration_number: form.professional_registration_number,
       email: form.email,
     }
     if (form.email !== profile.email) values.current_password = form.current_password
@@ -120,7 +124,7 @@ export default function MyProfilePage() {
     <div className="mx-auto w-full max-w-5xl">
       <header>
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Cuenta personal</p>
-        <h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight text-slate-900">Mi perfil</h1>
+        <h1 className="mt-1 font-sans text-4xl font-semibold tracking-tight text-slate-900">Mi perfil</h1>
         <p className="mt-2 text-sm text-slate-500">Mantén actualizados tus datos de contacto e identificación.</p>
       </header>
 
@@ -134,12 +138,12 @@ export default function MyProfilePage() {
             ) : (
               <AuthenticatedAvatar user={profile} accessToken={accessToken} alt={`Foto de ${displayName}`} className="h-36 w-36 border-4 border-white text-3xl shadow-md" />
             )}
-            <h2 className="mt-4 font-serif text-2xl font-semibold text-slate-900">{displayName}</h2>
+            <h2 className="mt-4 font-sans text-2xl font-semibold text-slate-900">{displayName}</h2>
             <span className="mt-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">{roleLabels[profile.role] || profile.role}</span>
             {profile.role === 'ODONTOLOGO' ? (
               <dl className="mt-4 w-full rounded-xl border border-cyan-100 bg-white p-3 text-left text-xs">
                 <div><dt className="font-semibold text-slate-500">Especialidad</dt><dd className="mt-0.5 text-slate-800">{profile.specialty || 'Sin especificar'}</dd></div>
-                <div className="mt-3"><dt className="font-semibold text-slate-500">Registro profesional</dt><dd className="mt-0.5 text-slate-800">{profile.professional_registration_number || 'Sin especificar'}</dd></div>
+                <div className="mt-3"><dt className="font-semibold text-slate-500">Código MINSA</dt><dd className="mt-0.5 text-slate-800">{profile.professional_registration_number || 'Sin especificar'}</dd></div>
               </dl>
             ) : null}
             <label className="mt-6 w-full cursor-pointer rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800">
@@ -153,12 +157,14 @@ export default function MyProfilePage() {
 
         <section className="p-6 sm:p-8" aria-labelledby="identity-title">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><h2 id="identity-title" className="font-serif text-2xl font-semibold text-slate-900">Datos personales</h2><p className="mt-1 text-sm text-slate-500">Esta información identifica tu cuenta dentro de la clínica.</p></div>
+            <div><h2 id="identity-title" className="font-sans text-2xl font-semibold text-slate-900">Datos personales</h2><p className="mt-1 text-sm text-slate-500">Esta información identifica tu cuenta dentro de la clínica.</p></div>
             <Link to="/cambiar-contrasena" className="rounded-xl border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 no-underline hover:bg-blue-50">Cambiar contraseña</Link>
           </div>
           <div className="mt-7 grid gap-5 sm:grid-cols-2">
             <label className="grid gap-2 text-sm font-semibold text-slate-700">Nombre<input required name="first_name" value={form.first_name} onChange={change} className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
             <label className="grid gap-2 text-sm font-semibold text-slate-700">Apellidos<input required name="last_name" value={form.last_name} onChange={change} className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">Especialidad<input maxLength="200" name="specialty" value={form.specialty} onChange={change} className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
+            <label className="grid gap-2 text-sm font-semibold text-slate-700">Código MINSA<input maxLength="100" name="professional_registration_number" value={form.professional_registration_number} onChange={change} className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
             <label className="grid gap-2 text-sm font-semibold text-slate-700">Teléfono<input name="phone" value={form.phone} onChange={change} placeholder="+505 8888 8888" className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
             <label className="grid gap-2 text-sm font-semibold text-slate-700">Correo electrónico<input required type="email" name="email" value={form.email} onChange={change} className="rounded-xl border border-slate-300 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
             {emailChanged ? <label className="grid gap-2 text-sm font-semibold text-slate-700 sm:col-span-2">Contraseña actual<input required aria-label="Contraseña actual" type="password" name="current_password" value={form.current_password} onChange={change} autoComplete="current-password" className="rounded-xl border border-amber-300 bg-amber-50/40 px-3 py-2.5 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /><span className="text-xs font-normal text-slate-500">Confírmala para proteger el cambio de tu correo de acceso.</span></label> : null}

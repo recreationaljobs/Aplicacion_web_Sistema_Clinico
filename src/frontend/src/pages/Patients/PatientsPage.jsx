@@ -50,14 +50,18 @@ export default function PatientsPage() {
 
   return <div className="mx-auto w-full max-w-6xl">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Gestión clínica</p><h1 className="mt-1 font-serif text-4xl font-semibold tracking-tight text-slate-900">Pacientes</h1><p className="mt-2 text-sm text-slate-500">Gestiona los registros y expedientes de tus pacientes.</p></div>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">Gestión clínica</p><h1 className="mt-1 font-sans text-4xl font-semibold tracking-tight text-slate-900">Pacientes</h1><p className="mt-2 text-sm text-slate-500">Gestiona los registros y expedientes de tus pacientes.</p></div>
       {canCreate ? <button type="button" aria-label="Nuevo paciente" onClick={() => navigate('/pacientes/nuevo')} className="rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-800">＋ Nuevo paciente</button> : null}
     </header>
 
-    <div className="mt-8 grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-      <label className="relative block"><span className="sr-only">Buscar pacientes</span><span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">⌕</span><input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar por nombre, identificación, teléfono o correo…" className="w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></label>
-      <label className="grid gap-1 text-xs font-semibold text-slate-600">Ordenar por<select aria-label="Ordenar por" value={orderingField} onChange={(event) => { setOrderingField(event.target.value); setPage(1) }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700"><option value="name">Nombre</option><option value="code">Código</option><option value="created_at">Fecha de registro</option><option value="is_active">Estado</option></select></label>
-      <label className="grid gap-1 text-xs font-semibold text-slate-600">Dirección<select aria-label="Dirección" value={orderingDirection} onChange={(event) => { setOrderingDirection(event.target.value); setPage(1) }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
+    <div className="mt-8 grid items-end gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+      <label className="relative block">
+        <span className="sr-only">Buscar pacientes</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
+        <input type="search" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Buscar por nombre, identificación, teléfono o correo…" className="h-11 w-full rounded-lg border border-slate-200 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" />
+      </label>
+      <label className="grid gap-1 text-xs font-semibold text-slate-600">Ordenar por<select aria-label="Ordenar por" value={orderingField} onChange={(event) => { setOrderingField(event.target.value); setPage(1) }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700"><option value="name">Nombre</option><option value="code">Código</option><option value="created_at">Fecha de registro</option><option value="is_active">Estado</option></select></label>
+      <label className="grid gap-1 text-xs font-semibold text-slate-600">Dirección<select aria-label="Dirección" value={orderingDirection} onChange={(event) => { setOrderingDirection(event.target.value); setPage(1) }} className="h-11 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-normal text-slate-700"><option value="asc">Ascendente</option><option value="desc">Descendente</option></select></label>
     </div>
 
     <section aria-label="Lista de pacientes" className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

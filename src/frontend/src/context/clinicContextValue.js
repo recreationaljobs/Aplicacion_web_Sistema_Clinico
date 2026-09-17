@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react'
 
 export const defaultClinicProfile = {
-  name: 'DentalClinic', tagline: 'Sistema de Gestión Odontológica', logo_url: '',
+  name: 'DentalClinic', logo_url: '',
   currency: 'NIO', timezone: 'America/Managua', schedule_configured: false,
 }
 

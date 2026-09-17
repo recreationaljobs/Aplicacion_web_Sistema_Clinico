@@ -35,6 +35,7 @@ export default function AppointmentDetailsPanel({
   onCompletePatientProfile,
   onStartAttendance,
   onCheckIn,
+  onUndoCheckIn,
   onContinueAttendance,
   rescheduleHistory = [],
   rescheduleHistoryLoading = false,
@@ -45,9 +46,12 @@ export default function AppointmentDetailsPanel({
   const [cancellationReason, setCancellationReason] = useState(appointment.cancellation_reason || '')
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [correctingArrival, setCorrectingArrival] = useState(false)
+  const [arrivalReason, setArrivalReason] = useState('')
 
   useEffect(() => {
     setCancelling(false)
+    setCorrectingArrival(false)
     setCancellationReason(appointment.cancellation_reason || '')
   }, [appointment.cancellation_reason, appointment.status])
 
@@ -89,6 +93,7 @@ export default function AppointmentDetailsPanel({
   const patientInactive = appointment.patient_is_active === false
   const editable = canEdit && (scheduled || confirmed)
   const canRegisterArrival = canCheckIn && !patientInactive && !appointment.consultation && (scheduled || confirmed)
+  const canCorrectArrival = canEdit && checkedIn && !appointment.consultation
   const canStart = canStartAttendance && !patientInactive && !appointment.consultation && (scheduled || confirmed || checkedIn)
   const canContinue = canContinueAttendance
     && appointment.status === 'EN_ATENCION'
@@ -96,7 +101,7 @@ export default function AppointmentDetailsPanel({
   const canViewConsultation = canContinueAttendance
     && appointment.status === 'COMPLETADA'
     && Boolean(appointment.consultation)
-  const hasActions = editable || canViewPatient || canRegisterArrival || canStart || canContinue || canViewConsultation
+  const hasActions = editable || canViewPatient || canRegisterArrival || canCorrectArrival || canStart || canContinue || canViewConsultation
   const profileError = error?.data?.code === 'patient_profile_incomplete'
   const missingFields = profileError && Array.isArray(error.data.missing_fields)
     ? error.data.missing_fields
@@ -108,7 +113,7 @@ export default function AppointmentDetailsPanel({
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-0 backdrop-blur-[2px] sm:p-5">
     <section role="dialog" aria-modal="true" aria-label="Detalle de cita" className="h-full w-full overflow-y-auto bg-white shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2.5rem)] sm:max-w-2xl sm:rounded-2xl">
       <header className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white/95 px-6 py-5 backdrop-blur">
-        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">Detalle de cita</p><h2 ref={titleRef} tabIndex="-1" id="appointment-detail-title" className="mt-1 font-serif text-3xl font-semibold text-slate-900 outline-none">{appointment.patient_name}</h2><p className="mt-1 text-xs font-semibold text-slate-500">{appointment.patient_code}</p></div>
+        <div><p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">Detalle de cita</p><h2 ref={titleRef} tabIndex="-1" id="appointment-detail-title" className="mt-1 font-sans text-3xl font-semibold text-slate-900 outline-none">{appointment.patient_name}</h2><p className="mt-1 text-xs font-semibold text-slate-500">{appointment.patient_code}</p></div>
         <button type="button" onClick={onClose} aria-label="Cerrar detalle" className="grid h-10 w-10 place-items-center rounded-full text-xl text-slate-500 hover:bg-slate-100">×</button>
       </header>
       <div className="space-y-6 p-6">
@@ -133,7 +138,7 @@ export default function AppointmentDetailsPanel({
           {appointment.cancellation_reason ? <div><dt className="text-xs font-bold uppercase tracking-wider text-slate-400">Motivo de cancelación</dt><dd className="mt-1 text-slate-700">{appointment.cancellation_reason}</dd></div> : null}
         </dl>
         <section aria-label="Historial de reprogramaciones" className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <h3 className="font-serif text-lg font-semibold text-slate-900">Historial de reprogramaciones</h3>
+          <h3 className="font-sans text-lg font-semibold text-slate-900">Historial de reprogramaciones</h3>
           {rescheduleHistoryLoading ? <p role="status" className="mt-3 text-sm text-slate-500">Cargando historial…</p> : null}
           {rescheduleHistoryError ? <p role="alert" className="mt-3 text-sm text-red-700">{rescheduleHistoryError}</p> : null}
           {!rescheduleHistoryLoading && !rescheduleHistoryError && rescheduleHistory.length === 0 ? <p className="mt-3 text-sm text-slate-500">Sin reprogramaciones registradas.</p> : null}
@@ -145,9 +150,19 @@ export default function AppointmentDetailsPanel({
           </li>)}</ol> : null}
         </section>
         {cancelling ? <div className="rounded-2xl border border-red-200 bg-red-50 p-4"><label className="block text-sm font-semibold text-red-800">Motivo de cancelación <span className="font-normal">(opcional)</span><textarea value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} rows="3" className="mt-2 w-full rounded-xl border border-red-200 bg-white p-3 font-normal outline-none focus:ring-2 focus:ring-red-100" /></label><div className="mt-3 flex gap-2"><button type="button" onClick={() => setCancelling(false)} className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-600">Volver</button><button disabled={saving} type="button" onClick={() => transition('CANCELADA', { cancellation_reason: cancellationReason.trim() })} className="rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white">Confirmar cancelación</button></div></div> : null}
-        {hasActions && !cancelling ? <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-5">
+        {correctingArrival ? <div className="rounded-xl border border-amber-200 p-4">
+          <label className="grid gap-2 text-sm font-semibold">Motivo de corrección de llegada
+            <textarea maxLength={1000} value={arrivalReason} onChange={(event) => setArrivalReason(event.target.value)} className="rounded-lg border p-3" />
+          </label>
+          <div className="mt-3 flex gap-2">
+            <button type="button" disabled={saving} onClick={() => setCorrectingArrival(false)}>Volver</button>
+            <button type="button" disabled={saving || !arrivalReason.trim()} onClick={() => clinicalAction(() => onUndoCheckIn(arrivalReason.trim()))} className="rounded-lg bg-amber-700 px-4 py-2 text-white disabled:opacity-50">Confirmar corrección</button>
+          </div>
+        </div> : null}
+        {hasActions && !cancelling && !correctingArrival ? <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-5">
           {canViewPatient ? <button type="button" onClick={onOpenPatient} className="rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-50">Abrir expediente</button> : null}
           {canRegisterArrival ? <button disabled={saving} type="button" onClick={() => clinicalAction(onCheckIn)} className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? 'Registrando…' : 'Registrar llegada'}</button> : null}
+          {canCorrectArrival ? <button type="button" disabled={saving} onClick={() => setCorrectingArrival(true)} className="rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800">Corregir llegada</button> : null}
           {canStart ? <button disabled={saving} type="button" onClick={() => clinicalAction(onStartAttendance)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? 'Iniciando…' : 'Iniciar atención'}</button> : null}
           {canContinue ? <button type="button" onClick={onContinueAttendance} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white">Continuar atención</button> : null}
           {canViewConsultation ? <button type="button" onClick={onContinueAttendance} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white">Ver consulta</button> : null}

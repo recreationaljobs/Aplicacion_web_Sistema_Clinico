@@ -62,7 +62,7 @@ export default function PatientConsultationsPanel({ accessToken, patientId, pati
   return <section aria-labelledby="patient-consultations-title" className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <header className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-700">Historial médico</p>
-        <h2 id="patient-consultations-title" className="mt-1 font-serif text-2xl font-semibold text-slate-900">Consultas del paciente</h2>
+        <h2 id="patient-consultations-title" className="mt-1 font-sans text-2xl font-semibold text-slate-900">Consultas del paciente</h2>
         <p className="mt-1 text-sm text-slate-500">Consulta el seguimiento y la evolución clínica.</p></div>
       {canCreate ? <Link to={`/pacientes/${patientId}/consultas/nueva`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-cyan-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-cyan-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"><span aria-hidden="true">+&nbsp;</span>Nueva consulta</Link> : null}
     </header>

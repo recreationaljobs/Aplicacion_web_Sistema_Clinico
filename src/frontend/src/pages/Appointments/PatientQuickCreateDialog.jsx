@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import PatientDuplicateDialog from '../../components/PatientDuplicateDialog'
+import { cedulaPattern, formatCedula } from '../../utils/identification'
 import {
   checkPatientDuplicates,
   createQuickPatient,
@@ -57,7 +58,14 @@ export default function PatientQuickCreateDialog({ accessToken, onCancel, onSele
   const [duplicateMatches, setDuplicateMatches] = useState([])
 
   const change = (field) => (event) => {
-    setForm((current) => ({ ...current, [field]: event.target.value }))
+    const value = event.target.value
+    setForm((current) => {
+      const next = { ...current, [field]: value }
+      if (next.identification_type === 'CEDULA' && ['identification_type', 'identification_number'].includes(field)) {
+        next.identification_number = formatCedula(next.identification_number)
+      }
+      return next
+    })
     setError('')
   }
 
@@ -129,7 +137,7 @@ export default function PatientQuickCreateDialog({ accessToken, onCancel, onSele
       <header className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-700">Agenda clínica</p>
-          <h2 id="patient-quick-create-title" className="mt-1 font-serif text-2xl font-semibold text-slate-900">Alta rápida de paciente</h2>
+          <h2 id="patient-quick-create-title" className="mt-1 font-sans text-2xl font-semibold text-slate-900">Alta rápida de paciente</h2>
           <p className="mt-1 text-xs text-slate-500">Crea el paciente sin abandonar la nueva cita.</p>
         </div>
         <button type="button" disabled={saving} onClick={onCancel} aria-label="Cerrar alta rápida" className="grid h-9 w-9 place-items-center rounded-full text-xl text-slate-500 hover:bg-slate-100 disabled:opacity-50">×</button>
@@ -143,7 +151,7 @@ export default function PatientQuickCreateDialog({ accessToken, onCancel, onSele
           <label className="text-sm font-semibold text-slate-700">Fecha de nacimiento<input required type="date" value={form.date_of_birth} onChange={change('date_of_birth')} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></label>
           <label className="text-sm font-semibold text-slate-700">Teléfono <span className="font-normal text-slate-400">(opcional con identificación)</span><input aria-label="Teléfono" type="tel" value={form.phone} onChange={change('phone')} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></label>
           <label className="text-sm font-semibold text-slate-700">Tipo de identificación<select value={form.identification_type} onChange={change('identification_type')} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"><option value="">Sin identificación</option><option value="CEDULA">Cédula</option><option value="PASAPORTE">Pasaporte</option><option value="OTRO">Otro</option></select></label>
-          <label className="text-sm font-semibold text-slate-700">Número de identificación<input value={form.identification_number} onChange={change('identification_number')} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></label>
+          <label className="text-sm font-semibold text-slate-700">Número de identificación<input value={form.identification_number} onChange={change('identification_number')} pattern={form.identification_type === 'CEDULA' ? cedulaPattern : undefined} placeholder={form.identification_type === 'CEDULA' ? '281-090403-1006K' : undefined} title={form.identification_type === 'CEDULA' ? 'Formato: 281-090403-1006K' : undefined} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" /></label>
         </div>
         <p className="text-xs leading-5 text-slate-500">Se requiere teléfono o identificación. Los demás datos administrativos podrán completarse después.</p>
         <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
