@@ -457,8 +457,15 @@ describe('AppointmentsPage', () => {
     renderFollowUpPage()
     const dialog = await screen.findByRole('dialog', { name: 'Nueva cita' })
 
+    await waitFor(() => {
+      expect(within(dialog).getByLabelText('Odontólogo')).toHaveValue('3')
+      expect(within(dialog).getByLabelText(/Servicio/)).toHaveValue('4')
+      expect(within(dialog).getByLabelText('Duración')).toHaveValue('45')
+    })
+
     fireEvent.change(within(dialog).getByLabelText('Fecha'), { target: { value: datePlus(1) } })
     fireEvent.change(within(dialog).getByLabelText('Hora'), { target: { value: '10:30' } })
+
     await waitFor(() => expect(appointmentService.getAvailableDentists).toHaveBeenCalledWith(
       'access-token',
       expect.objectContaining({ date: datePlus(1), startTime: '10:30', durationMinutes: '45' }),
