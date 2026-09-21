@@ -17,6 +17,7 @@ from rest_framework.test import APIClient, APITestCase
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from PIL import Image
+from rest_framework import status
 
 from apps.audit.models import AuditEvent
 from apps.patients.models import Patient
@@ -265,10 +266,32 @@ class SecureSessionApiTests(APITestCase):
         self.client = APIClient(enforce_csrf_checks=True)
 
     def csrf_headers(self):
-        response = self.client.get(reverse("users:csrf"))
-        self.assertEqual(response.status_code, 204)
-        token = self.client.cookies["csrftoken"].value
-        return {"HTTP_X_CSRFTOKEN": token}
+        response = self.client.get("/api/auth/csrf/")
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        data = response.json()
+
+        self.assertIn(
+            "csrfToken",
+            data,
+        )
+
+        self.assertTrue(
+            data["csrfToken"]
+        )
+
+        self.assertIn(
+            "csrftoken",
+            self.client.cookies,
+        )
+
+        return {
+            "HTTP_X_CSRFTOKEN": data["csrfToken"],
+        }
 
     def login(self):
         return self.client.post(
