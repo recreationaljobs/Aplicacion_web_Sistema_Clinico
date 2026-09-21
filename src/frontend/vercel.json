@@ -3,11 +3,13 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "https://aplicacion-web-sistema-clinico.onrender.com/api/$1"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
