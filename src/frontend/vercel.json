@@ -9,7 +9,7 @@
       "destination": "https://aplicacion-web-sistema-clinico.onrender.com/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api(?:/|$)).*)",
       "destination": "/index.html"
     }
   ],
@@ -20,11 +20,15 @@
         {
           "key": "Cache-Control",
           "value": "private, no-store"
+        },
+        {
+          "key": "X-Vercel-Enable-Rewrite-Caching",
+          "value": "0"
         }
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "headers": [
         {
           "key": "X-Content-Type-Options",
