@@ -4,9 +4,25 @@ const BACKEND_URL =
 const FRONTEND_URL =
   'https://aplicacion-web-sistema-clinico-blush.vercel.app'
 
+
+async function readRawBody(req) {
+  const chunks = []
+
+  for await (const chunk of req) {
+    chunks.push(
+      Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk)
+    )
+  }
+
+  return Buffer.concat(chunks)
+}
+
+
 export default async function handler(req, res) {
   const target = String(
-    req.query.target || '',
+    req.query.target || ''
   )
 
   if (!target.startsWith('/api/')) {
@@ -26,12 +42,11 @@ export default async function handler(req, res) {
 
     const targetUrl =
       `${BACKEND_URL}${normalizedPath}` +
-      (queryString
-        ? `?${queryString}`
-        : '')
-
-    const incomingContentType =
-      req.headers['content-type'] || ''
+      (
+        queryString
+          ? `?${queryString}`
+          : ''
+      )
 
     const headers = {
       Accept:
@@ -62,6 +77,18 @@ export default async function handler(req, res) {
         req.headers['x-csrftoken']
     }
 
+    /*
+     * Muy importante:
+     * reenviamos exactamente el Content-Type
+     * recibido del navegador.
+     *
+     * En multipart/form-data incluye el boundary.
+     */
+    if (req.headers['content-type']) {
+      headers['Content-Type'] =
+        req.headers['content-type']
+    }
+
     let body
 
     if (
@@ -69,55 +96,39 @@ export default async function handler(req, res) {
       req.method !== 'HEAD'
     ) {
       /*
-       * FORM DATA
-       *
-       * No reutilizamos el boundary original.
-       * Creamos un FormData nuevo para que fetch
-       * genere correctamente Content-Type + boundary.
+       * Si Vercel conserva el request como stream,
+       * reenviamos los bytes originales.
        */
-      if (
-        incomingContentType.includes(
-          'multipart/form-data',
-        )
+      const rawBody =
+        await readRawBody(req)
+
+      if (rawBody.length > 0) {
+        body = rawBody
+      } else if (
+        typeof req.body === 'string'
       ) {
-        const formData = new FormData()
-
-        if (
-          req.body &&
-          typeof req.body === 'object'
-        ) {
-          for (
-            const [key, value]
-            of Object.entries(req.body)
-          ) {
-            if (
-              value !== undefined &&
-              value !== null
-            ) {
-              formData.append(
-                key,
-                String(value),
-              )
-            }
-          }
-        }
-
-        body = formData
-      } else {
+        body = req.body
+      } else if (
+        Buffer.isBuffer(req.body)
+      ) {
+        body = req.body
+      } else if (
+        req.body !== undefined &&
+        req.body !== null
+      ) {
         /*
-         * JSON normal.
+         * Fallback para JSON cuando Vercel
+         * ya procesó el body.
          */
-        headers['Content-Type'] =
-          'application/json'
+        body = JSON.stringify(
+          req.body
+        )
 
         if (
-          typeof req.body === 'string'
+          !headers['Content-Type']
         ) {
-          body = req.body
-        } else {
-          body = JSON.stringify(
-            req.body || {},
-          )
+          headers['Content-Type'] =
+            'application/json'
         }
       }
     }
@@ -129,59 +140,61 @@ export default async function handler(req, res) {
         headers,
         body,
         redirect: 'manual',
-      },
+      }
     )
 
-    const responseBuffer =
+    const responseBody =
       Buffer.from(
-        await response.arrayBuffer(),
+        await response.arrayBuffer()
       )
 
-    res.status(response.status)
+    res.status(
+      response.status
+    )
 
     const contentType =
       response.headers.get(
-        'content-type',
+        'content-type'
       )
 
     if (contentType) {
       res.setHeader(
         'Content-Type',
-        contentType,
+        contentType
       )
     }
 
     const disposition =
       response.headers.get(
-        'content-disposition',
+        'content-disposition'
       )
 
     if (disposition) {
       res.setHeader(
         'Content-Disposition',
-        disposition,
+        disposition
       )
     }
 
     const setCookie =
       response.headers.get(
-        'set-cookie',
+        'set-cookie'
       )
 
     if (setCookie) {
       res.setHeader(
         'Set-Cookie',
-        setCookie,
+        setCookie
       )
     }
 
     return res.send(
-      responseBuffer,
+      responseBody
     )
   } catch (error) {
     console.error(
       'API proxy error:',
-      error,
+      error
     )
 
     return res.status(502).json({
