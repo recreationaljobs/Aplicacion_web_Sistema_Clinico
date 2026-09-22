@@ -1,18 +1,29 @@
 export function resolveApiUrl({ configured, isDevelopment, location }) {
   if (configured?.trim() === '/') return ''
+
   const explicitUrl = configured?.trim().replace(/\/+$/, '')
   if (explicitUrl) return explicitUrl
+
   if (!isDevelopment) {
-    throw new Error('VITE_API_URL es obligatoria para el build de producción.')
+    throw new Error(
+      'VITE_API_URL es obligatoria para el build de producción.',
+    )
   }
-  if (!location) return 'http://127.0.0.1:8000'
+
+  if (!location) {
+    return 'http://127.0.0.1:8000'
+  }
+
   return `${location.protocol}//${location.hostname}:8000`
 }
 
 const API_URL = resolveApiUrl({
   configured: import.meta.env.VITE_API_URL,
   isDevelopment: import.meta.env.DEV,
-  location: typeof window === 'undefined' ? null : window.location,
+  location:
+    typeof window === 'undefined'
+      ? null
+      : window.location,
 })
 
 let accessToken = null
@@ -20,6 +31,49 @@ let refreshPromise = null
 let sessionExpiredHandler = null
 let forbiddenHandler = null
 let sessionGeneration = 0
+
+/*
+ * En producción usamos Vercel como mismo origen.
+ *
+ * Vercel Functions:
+ *   /api/system/features   ✅
+ *   /api/system/features/  ❌ cae en la SPA
+ *
+ * En desarrollo seguimos conservando la barra final porque
+ * Django trabaja normalmente con APPEND_SLASH.
+ */
+function requestUrl(path) {
+  const rawPath = path.startsWith('/')
+    ? path
+    : `/${path}`
+
+  // Si apuntamos directamente al backend (desarrollo u otra URL),
+  // mantenemos la ruta original.
+  if (API_URL) {
+    return `${API_URL}${rawPath}`
+  }
+
+  // En Vercel quitamos únicamente la barra final del pathname,
+  // pero conservamos query params.
+  const questionIndex = rawPath.indexOf('?')
+
+  const pathname =
+    questionIndex === -1
+      ? rawPath
+      : rawPath.slice(0, questionIndex)
+
+  const query =
+    questionIndex === -1
+      ? ''
+      : rawPath.slice(questionIndex)
+
+  const normalizedPath =
+    pathname.length > 1
+      ? pathname.replace(/\/+$/, '')
+      : pathname
+
+  return `${normalizedPath}${query}`
+}
 
 export function setAccessToken(token) {
   accessToken = token || null
@@ -40,173 +94,428 @@ export function setForbiddenHandler(handler) {
 }
 
 function firstError(value) {
-  if (typeof value === 'string') return value
+  if (typeof value === 'string') {
+    return value
+  }
+
   if (Array.isArray(value)) {
     for (const item of value) {
       const message = firstError(item)
-      if (message) return message
+
+      if (message) {
+        return message
+      }
     }
   }
+
   if (value && typeof value === 'object') {
     for (const item of Object.values(value)) {
       const message = firstError(item)
-      if (message) return message
+
+      if (message) {
+        return message
+      }
     }
   }
+
   return ''
 }
 
 function errorMessage(data) {
-  if (Array.isArray(data.detail)) return data.detail[0]
-  if (typeof data.detail === 'string') return data.detail
-  return firstError(data) || 'No fue posible procesar la solicitud.'
+  if (Array.isArray(data?.detail)) {
+    return data.detail[0]
+  }
+
+  if (typeof data?.detail === 'string') {
+    return data.detail
+  }
+
+  return (
+    firstError(data) ||
+    'No fue posible procesar la solicitud.'
+  )
 }
 
-function csrfToken() {
+function csrfTokenFromCookie() {
+  if (typeof document === 'undefined') {
+    return ''
+  }
+
   const cookie = document.cookie
     .split('; ')
-    .find((item) => item.startsWith('csrftoken='))
-  return cookie ? decodeURIComponent(cookie.split('=').slice(1).join('=')) : ''
+    .find((item) =>
+      item.startsWith('csrftoken='),
+    )
+
+  return cookie
+    ? decodeURIComponent(
+        cookie
+          .split('=')
+          .slice(1)
+          .join('='),
+      )
+    : ''
 }
 
 export async function ensureCsrfCookie() {
-  await fetch(`${API_URL}/api/auth/csrf/`, { credentials: 'include' })
-  return csrfToken()
+  const response = await fetch(
+    requestUrl('/api/auth/csrf/'),
+    {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+  )
+
+  const data = await response
+    .json()
+    .catch(() => ({}))
+
+  if (!response.ok) {
+    throw new Error(
+      errorMessage(data) ||
+        'No fue posible obtener el token CSRF.',
+    )
+  }
+
+  /*
+   * El backend actualizado devuelve:
+   *
+   * {
+   *   "csrfToken": "..."
+   * }
+   *
+   * Dejamos también el fallback de cookie para mantener
+   * compatibilidad.
+   */
+  const token =
+    data.csrfToken ||
+    csrfTokenFromCookie()
+
+  if (!token) {
+    throw new Error(
+      'El servidor no devolvió el token CSRF.',
+    )
+  }
+
+  return token
 }
 
-export async function csrfRequest(path, options = {}) {
+export async function csrfRequest(
+  path,
+  options = {},
+) {
   const csrf = await ensureCsrfCookie()
+
   return apiRequest(path, {
     ...options,
     credentials: 'include',
     headers: {
       ...options.headers,
-      ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+      'X-CSRFToken': csrf,
     },
   })
 }
 
-async function authenticatedResponse(path, options = {}) {
-  const { _retried, ...requestOptions } = options
-  const isProtected = Boolean(options.headers?.Authorization)
-  const contentHeaders = options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }
-  const response = await fetch(`${API_URL}${path}`, {
-    ...requestOptions,
-    credentials: options.credentials || 'include',
-    headers: {
-      ...contentHeaders,
-      ...options.headers,
-      ...(isProtected && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+async function authenticatedResponse(
+  path,
+  options = {},
+) {
+  const {
+    _retried,
+    ...requestOptions
+  } = options
+
+  const isProtected = Boolean(
+    options.headers?.Authorization,
+  )
+
+  const contentHeaders =
+    options.body instanceof FormData
+      ? {}
+      : {
+          'Content-Type':
+            'application/json',
+        }
+
+  const response = await fetch(
+    requestUrl(path),
+    {
+      ...requestOptions,
+      credentials:
+        options.credentials ||
+        'include',
+      headers: {
+        ...contentHeaders,
+        ...options.headers,
+        ...(isProtected &&
+        accessToken
+          ? {
+              Authorization:
+                `Bearer ${accessToken}`,
+            }
+          : {}),
+      },
     },
-  })
-  if (response.status === 401 && isProtected && !_retried) {
-    const renewedAccess = await refreshAccessToken()
-    return authenticatedResponse(path, {
-      ...options,
-      _retried: true,
-      headers: { ...options.headers, Authorization: `Bearer ${renewedAccess}` },
-    })
+  )
+
+  if (
+    response.status === 401 &&
+    isProtected &&
+    !_retried
+  ) {
+    const renewedAccess =
+      await refreshAccessToken()
+
+    return authenticatedResponse(
+      path,
+      {
+        ...options,
+        _retried: true,
+        headers: {
+          ...options.headers,
+          Authorization:
+            `Bearer ${renewedAccess}`,
+        },
+      },
+    )
   }
-  if (response.status === 403 && isProtected && forbiddenHandler) {
+
+  if (
+    response.status === 403 &&
+    isProtected &&
+    forbiddenHandler
+  ) {
     try {
-      Promise.resolve(forbiddenHandler()).catch(() => {})
+      Promise.resolve(
+        forbiddenHandler(),
+      ).catch(() => {})
     } catch {
-      // El error original de autorización conserva prioridad para el consumidor.
+      // El error original conserva prioridad.
     }
   }
+
   return response
 }
 
-export async function apiRequest(path, options = {}) {
-  const response = await authenticatedResponse(path, options)
-  const data = await response.json().catch(() => ({}))
+export async function apiRequest(
+  path,
+  options = {},
+) {
+  const response =
+    await authenticatedResponse(
+      path,
+      options,
+    )
+
+  const data = await response
+    .json()
+    .catch(() => ({}))
+
   if (!response.ok) {
-    const error = new Error(errorMessage(data))
+    const error = new Error(
+      errorMessage(data),
+    )
+
     error.status = response.status
     error.data = data
+
     throw error
   }
+
   return data
 }
 
-export async function apiBlobRequest(path, options = {}) {
-  const response = await authenticatedResponse(path, options)
+export async function apiBlobRequest(
+  path,
+  options = {},
+) {
+  const response =
+    await authenticatedResponse(
+      path,
+      options,
+    )
+
   if (!response.ok) {
-    const data = await response.json().catch(() => ({}))
-    const error = new Error(errorMessage(data))
+    const data = await response
+      .json()
+      .catch(() => ({}))
+
+    const error = new Error(
+      errorMessage(data),
+    )
+
     error.status = response.status
     error.data = data
+
     throw error
   }
+
   return response.blob()
 }
 
 function fileResponseName(response) {
-  const disposition = response.headers.get('Content-Disposition') || ''
-  const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
-  const plain = disposition.match(/filename="?([^";]+)"?/i)?.[1]
+  const disposition =
+    response.headers.get(
+      'Content-Disposition',
+    ) || ''
+
+  const encoded =
+    disposition.match(
+      /filename\*=UTF-8''([^;]+)/i,
+    )?.[1]
+
+  const plain =
+    disposition.match(
+      /filename="?([^";]+)"?/i,
+    )?.[1]
+
   let filename = ''
+
   try {
-    filename = encoded ? decodeURIComponent(encoded.replace(/^"|"$/g, '')) : (plain || '')
+    filename = encoded
+      ? decodeURIComponent(
+          encoded.replace(
+            /^"|"$/g,
+            '',
+          ),
+        )
+      : plain || ''
   } catch {
     filename = plain || ''
   }
-  return Array.from(filename.split(/[\\/]/).pop())
+
+  return Array.from(
+    filename
+      .split(/[\\/]/)
+      .pop(),
+  )
     .filter((character) => {
-      const code = character.charCodeAt(0)
-      return code >= 32 && code !== 127
+      const code =
+        character.charCodeAt(0)
+
+      return (
+        code >= 32 &&
+        code !== 127
+      )
     })
     .join('')
     .trim()
 }
 
-export async function apiFileRequest(path, options = {}) {
-  const response = await authenticatedResponse(path, options)
+export async function apiFileRequest(
+  path,
+  options = {},
+) {
+  const response =
+    await authenticatedResponse(
+      path,
+      options,
+    )
+
   if (!response.ok) {
-    const data = await response.json().catch(() => ({}))
-    const error = new Error(errorMessage(data))
+    const data = await response
+      .json()
+      .catch(() => ({}))
+
+    const error = new Error(
+      errorMessage(data),
+    )
+
     error.status = response.status
     error.data = data
+
     throw error
   }
+
   return {
     blob: await response.blob(),
-    filename: fileResponseName(response),
+    filename:
+      fileResponseName(response),
   }
 }
 
 export async function refreshAccessToken() {
-  const generation = sessionGeneration
-  if (refreshPromise?.generation === generation) return refreshPromise.promise
+  const generation =
+    sessionGeneration
+
+  if (
+    refreshPromise?.generation ===
+    generation
+  ) {
+    return refreshPromise.promise
+  }
+
   const promise = (async () => {
-    const csrf = await ensureCsrfCookie()
-    const response = await fetch(`${API_URL}/api/auth/token/refresh/`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+    const csrf =
+      await ensureCsrfCookie()
+
+    const response = await fetch(
+      requestUrl(
+        '/api/auth/token/refresh/',
+      ),
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type':
+            'application/json',
+          'X-CSRFToken': csrf,
+        },
+        body: JSON.stringify({}),
       },
-      body: JSON.stringify({}),
-    })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || !data.access) {
-      if (generation === sessionGeneration) {
+    )
+
+    const data = await response
+      .json()
+      .catch(() => ({}))
+
+    if (
+      !response.ok ||
+      !data.access
+    ) {
+      if (
+        generation ===
+        sessionGeneration
+      ) {
         clearAccessToken()
         sessionExpiredHandler?.()
       }
-      throw new Error('Tu sesión expiró. Inicia sesión nuevamente.')
+
+      throw new Error(
+        'Tu sesión expiró. Inicia sesión nuevamente.',
+      )
     }
-    if (generation !== sessionGeneration) {
-      throw new Error('La sesión cambió durante la renovación.')
+
+    if (
+      generation !==
+      sessionGeneration
+    ) {
+      throw new Error(
+        'La sesión cambió durante la renovación.',
+      )
     }
+
     setAccessToken(data.access)
+
     return data.access
   })()
-  refreshPromise = { generation, promise }
+
+  refreshPromise = {
+    generation,
+    promise,
+  }
+
   try {
     return await promise
   } finally {
-    if (refreshPromise?.promise === promise) refreshPromise = null
+    if (
+      refreshPromise?.promise ===
+      promise
+    ) {
+      refreshPromise = null
+    }
   }
 }

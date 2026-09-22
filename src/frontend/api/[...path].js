@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     const queryString = searchParams.toString()
 
     const targetUrl =
-      `${BACKEND_URL}/api/${path}` +
+      `${BACKEND_URL}/api/${path}/` +
       (queryString ? `?${queryString}` : '')
 
     const headers = new Headers()
