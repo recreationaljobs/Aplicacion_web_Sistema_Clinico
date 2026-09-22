@@ -47,14 +47,11 @@ function requestUrl(path) {
     ? path
     : `/${path}`
 
-  // Si apuntamos directamente al backend (desarrollo u otra URL),
-  // mantenemos la ruta original.
+  // Desarrollo/local o conexión directa configurada.
   if (API_URL) {
     return `${API_URL}${rawPath}`
   }
 
-  // En Vercel quitamos únicamente la barra final del pathname,
-  // pero conservamos query params.
   const questionIndex = rawPath.indexOf('?')
 
   const pathname =
@@ -72,7 +69,35 @@ function requestUrl(path) {
       ? pathname.replace(/\/+$/, '')
       : pathname
 
-  return `${normalizedPath}${query}`
+  const normalizedTarget =
+    `${normalizedPath}${query}`
+
+  /*
+   * Estas rutas tienen Vercel Functions específicas
+   * que ya comprobamos que funcionan.
+   */
+  const directVercelFunctions = new Set([
+    '/api/system/features',
+    '/api/auth/csrf',
+    '/api/auth/login',
+  ])
+
+  if (directVercelFunctions.has(normalizedPath)) {
+    return normalizedTarget
+  }
+
+  /*
+   * Todo el resto de la API pasa por la Function genérica:
+   *
+   * navegador
+   *   /api/proxy?target=...
+   *
+   * Vercel
+   *   ↓
+   *
+   * Django / Render
+   */
+  return `/api/proxy?target=${encodeURIComponent(normalizedTarget)}`
 }
 
 export function setAccessToken(token) {
