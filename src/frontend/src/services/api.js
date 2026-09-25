@@ -40,6 +40,7 @@ const API_URL = resolveApiUrl({
 
 
 let accessToken = null
+let accessTokenChangeHandler = null
 let refreshPromise = null
 let sessionExpiredHandler = null
 let forbiddenHandler = null
@@ -141,11 +142,19 @@ function requestUrl(path) {
 }
 
 
-export function setAccessToken(
-  token,
+export function setAccessTokenChangeHandler(
+  handler,
 ) {
+  accessTokenChangeHandler = handler
+}
+
+export function setAccessToken(token) {
   accessToken = token || null
   sessionGeneration += 1
+
+  accessTokenChangeHandler?.(
+    accessToken
+  )
 }
 
 

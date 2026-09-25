@@ -91,7 +91,7 @@ PRIVATE_MEDIA_ROOT = BASE_DIR / "private_media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REFRESH_COOKIE_NAME = "dentalclinic_refresh"
-REFRESH_COOKIE_PATH = "/api/auth/"
+REFRESH_COOKIE_PATH = "/"
 REFRESH_COOKIE_MAX_AGE = 8 * 60 * 60
 REFRESH_COOKIE_SAMESITE = "Lax"
 API_CONTENT_SECURITY_POLICY = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"

@@ -9,6 +9,7 @@ import {
   setAccessToken,
   setForbiddenHandler,
   setSessionExpiredHandler,
+  setAccessTokenChangeHandler
 } from '../services/api'
 import { AuthContext } from './authContextValue'
 
@@ -42,6 +43,32 @@ export function AuthProvider({ children, initialSession }) {
     setSessionExpiredHandler(() => setSession(null))
     return () => setSessionExpiredHandler(null)
   }, [])
+
+
+  useEffect(() => {
+  setAccessTokenChangeHandler(
+    (newAccess) => {
+      setSession((current) => {
+        if (!current) {
+          return current
+        }
+
+        if (!newAccess) {
+          return null
+        }
+
+        return {
+          ...current,
+          access: newAccess,
+        }
+      })
+    }
+  )
+
+  return () => {
+    setAccessTokenChangeHandler(null)
+  }
+}, [])
 
   const revalidateUser = useCallback(() => {
     const access = session?.access
