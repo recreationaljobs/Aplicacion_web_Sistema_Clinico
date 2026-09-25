@@ -58,7 +58,7 @@ export default function LoginPage() {
             <div className="flex justify-end items-center mb-10 text-xs">
               {passwordResetEnabled ? <Link to="/recuperar-contrasena" className="text-[#252525] no-underline font-semibold">¿Has olvidado tu contraseña?</Link> : <p>Para cambiar tu contraseña, contacta al administrador de la demo.</p>}
             </div>
-           
+            <CustomButton type="submit" disabled={loading}>{loading ? 'Iniciando sesión…' : 'Iniciar sesión'}</CustomButton>
           </form>
         </section>
     </main>
