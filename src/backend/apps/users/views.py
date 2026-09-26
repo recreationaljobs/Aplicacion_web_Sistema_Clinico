@@ -491,14 +491,18 @@ class PasswordResetRequestView(APIView):
             except (
                 SMTPException,
                 OSError,
-            ):
+            ) as exc:
+                print(
+                    "SMTP DEBUG >>>",
+                    type(exc).__name__,
+                    repr(exc),
+                    flush=True,
+                )
+
                 logging.getLogger(
                     "dentalclinic.mail"
                 ).error(
-                    (
-                        "Password reset "
-                        "delivery failed"
-                    ),
+                    "Password reset delivery failed",
                     extra={
                         "request_id": getattr(
                             request,
