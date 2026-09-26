@@ -1,3 +1,4 @@
+from apps.common.test_utils import assign_test_patient, assigned_test_consultation, legacy_consultation_response, start_test_attendance
 from unittest.mock import patch
 
 from django.apps import apps
@@ -432,6 +433,7 @@ class PatientApiTests(APITestCase):
         )
         self.client.force_authenticate(self.dentist)
 
+        assign_test_patient(Patient.objects.get(first_name="Juan"), self.dentist)
         response = self.client.get(f"{self.list_url}?search=Juan")
 
         self.assertEqual(response.status_code, 200)
@@ -599,6 +601,7 @@ class PatientApiTests(APITestCase):
         created = self.client.post(self.list_url, self.payload(), format="json")
         self.client.force_authenticate(self.dentist)
 
+        assign_test_patient(Patient.objects.get(pk=created.data["id"]), self.dentist)
         response = self.client.get(
             f"{self.list_url}{created.data['id']}/consultations/"
         )
@@ -773,6 +776,7 @@ class PatientOptionApiTests(APITestCase):
         preset.save(update_fields=["permissions"])
         self.client.force_authenticate(self.dentist)
 
+        assign_test_patient(patient, self.dentist)
         options = self.client.get(self.options_url, {"search": "Permiso"})
         records = self.client.get(self.list_url)
         detail = self.client.get(f"{self.list_url}{patient.pk}/")
@@ -836,7 +840,7 @@ class RecentConsultationApiTests(APITestCase):
         )
 
     def create_consultation(self, professional, date, time="09:00:00"):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=self.patient,
             professional=professional,
             date=date,
@@ -954,7 +958,7 @@ class PatientDashboardSummaryApiTests(APITestCase):
         status=Consultation.Status.COMPLETED,
         professional=None,
     ):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=patient,
             professional=professional or self.dentist,
             date=date,
@@ -1152,10 +1156,10 @@ class ConsultationApiTests(APITestCase):
 
     def create_consultation(self, **overrides):
         self.client.force_authenticate(self.dentist)
-        return self.client.post(self.list_url, self.payload(**overrides), format="json")
+        return legacy_consultation_response(self.patient, self.dentist, self.payload(**overrides))
 
     def test_compact_consultation_options_are_patient_scoped_and_minimal(self):
-        first = Consultation.objects.create(
+        first = assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             date="2026-08-08",
@@ -1164,7 +1168,7 @@ class ConsultationApiTests(APITestCase):
             summary="Privado uno",
             status=Consultation.Status.COMPLETED,
         )
-        second = Consultation.objects.create(
+        second = assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             date="2026-09-01",
@@ -1173,7 +1177,7 @@ class ConsultationApiTests(APITestCase):
             summary="Privado dos",
             status=Consultation.Status.COMPLETED,
         )
-        Consultation.objects.create(
+        assigned_test_consultation(
             patient=self.other_patient,
             professional=self.dentist,
             date="2026-09-02",
@@ -1301,7 +1305,7 @@ class ConsultationApiTests(APITestCase):
         self.assertEqual(Consultation.objects.count(), 0)
 
     def test_rejects_each_required_consultation_metadata_field(self):
-        self.client.force_authenticate(self.dentist)
+        self.client.force_authenticate(self.admin)
 
         for field in ("date", "time", "consultation_type", "summary", "status"):
             with self.subTest(field=field):
@@ -1362,7 +1366,7 @@ class ConsultationApiTests(APITestCase):
         self.assertEqual(repeated.status_code, 200)
         self.assertEqual(repeated.data["consultation"]["completed_at"], completed_at)
         self.assertEqual(repeated.data["consultation"]["completed_by"], self.dentist.pk)
-        self.assertEqual(Appointment.objects.count(), 0)
+        self.assertEqual(Appointment.objects.filter(consultation__isnull=False).count(), 0)
 
         blocked_content = self.client.patch(
             detail_url,
@@ -1392,10 +1396,7 @@ class ConsultationApiTests(APITestCase):
             created_by=self.admin,
         )
         self.client.force_authenticate(self.admin)
-        started = self.client.post(
-            f"/api/appointments/{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        started = start_test_attendance(self.client, appointment)
         consultation_id = started.data["consultation"]["id"]
 
         response = self.client.post(
@@ -1429,7 +1430,7 @@ class ConsultationApiTests(APITestCase):
         )
 
     def test_complete_reuses_only_the_existing_required_clinical_contract(self):
-        consultation = Consultation.objects.create(
+        consultation = assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             date="2026-08-08",
@@ -1457,7 +1458,7 @@ class ConsultationApiTests(APITestCase):
             Appointment.Status.NO_SHOW,
         )):
             with self.subTest(status=appointment_status):
-                consultation = Consultation.objects.create(
+                consultation = assigned_test_consultation(
                     patient=self.patient,
                     professional=self.dentist,
                     date=f"2026-08-{20 + offset}",
@@ -1505,10 +1506,7 @@ class ConsultationApiTests(APITestCase):
             created_by=self.admin,
         )
         self.client.force_authenticate(self.admin)
-        started = self.client.post(
-            f"/api/appointments/{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        started = start_test_attendance(self.client, appointment)
         consultation_id = started.data["consultation"]["id"]
 
         with patch.object(Appointment, "save", side_effect=RuntimeError("synthetic sync failure")):
@@ -1548,10 +1546,7 @@ class ConsultationApiTests(APITestCase):
             created_by=self.admin,
         )
         self.client.force_authenticate(self.admin)
-        started = self.client.post(
-            f"/api/appointments/{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        started = start_test_attendance(self.client, appointment)
         linked_id = started.data["consultation"]["id"]
         linked = self.client.post(
             f"{self.list_url}{linked_id}/cancel/",

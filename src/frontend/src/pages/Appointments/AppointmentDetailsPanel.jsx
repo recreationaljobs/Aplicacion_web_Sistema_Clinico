@@ -95,6 +95,7 @@ export default function AppointmentDetailsPanel({
   const canRegisterArrival = canCheckIn && !patientInactive && !appointment.consultation && (scheduled || confirmed)
   const canCorrectArrival = canEdit && checkedIn && !appointment.consultation
   const canStart = canStartAttendance && !patientInactive && !appointment.consultation && (scheduled || confirmed || checkedIn)
+  const startAvailable = appointment.attendance?.can_start === true
   const canContinue = canContinueAttendance
     && appointment.status === 'EN_ATENCION'
     && Boolean(appointment.consultation)
@@ -163,7 +164,7 @@ export default function AppointmentDetailsPanel({
           {canViewPatient ? <button type="button" onClick={onOpenPatient} className="rounded-xl border border-blue-200 px-4 py-2.5 text-sm font-semibold text-blue-800 hover:bg-blue-50">Abrir expediente</button> : null}
           {canRegisterArrival ? <button disabled={saving} type="button" onClick={() => clinicalAction(onCheckIn)} className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? 'Registrando…' : 'Registrar llegada'}</button> : null}
           {canCorrectArrival ? <button type="button" disabled={saving} onClick={() => setCorrectingArrival(true)} className="rounded-xl border border-amber-300 px-4 py-2.5 text-sm font-semibold text-amber-800">Corregir llegada</button> : null}
-          {canStart ? <button disabled={saving} type="button" onClick={() => clinicalAction(onStartAttendance)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{saving ? 'Iniciando…' : 'Iniciar atención'}</button> : null}
+          {canStart ? <div><button disabled={saving || !startAvailable} type="button" onClick={() => clinicalAction(onStartAttendance)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">{saving ? 'Iniciando…' : 'Iniciar consulta'}</button>{!startAvailable ? <p role="status" className="mt-2 text-sm text-slate-600">{appointment.attendance?.detail || 'Consultando disponibilidad de atención…'}</p> : null}</div> : null}
           {canContinue ? <button type="button" onClick={onContinueAttendance} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white">Continuar atención</button> : null}
           {canViewConsultation ? <button type="button" onClick={onContinueAttendance} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white">Ver consulta</button> : null}
           {editable ? <button type="button" onClick={onEdit} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Editar</button> : null}

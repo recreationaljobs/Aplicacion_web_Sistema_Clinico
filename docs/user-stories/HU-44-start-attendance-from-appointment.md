@@ -2,6 +2,8 @@
 
 **Estado:** Implementada y validada el 31 de agosto de 2026.
 
+**Actualización 25/09/2026:** aislamiento por odontólogo y ventana temporal implementados sin migraciones nuevas. El [contrato, análisis y verificación actuales](../patient-assignment-access.md) detallan el cambio y los fallos previos de la suite general. La evidencia histórica que sigue corresponde al cierre inicial.
+
 ## Criterio de aceptación
 
 Desde una cita programada o confirmada, un profesional autorizado puede iniciar
@@ -11,8 +13,10 @@ odontograma inicial y las alertas longitudinales del paciente.
 ## Diseño implementado
 
 `Appointment.consultation` es una relación `OneToOneField` nullable hacia
-`Consultation`, con `PROTECT`. Las consultas manuales continúan sin requerir una
-cita. No se infirieron enlaces históricos.
+`Consultation`, con `PROTECT`. Para odontólogos, las nuevas consultas requieren
+una cita propia y su intervalo horario; las consultas manuales históricas se
+conservan. El flujo administrativo mantiene su comportamiento anterior.
+No se infirieron enlaces históricos.
 
 El servicio `start_attendance` ejecuta una transacción atómica, bloquea solamente
 la fila de la cita con `select_for_update(of=("self",))`, valida permisos y estado,
@@ -29,7 +33,7 @@ una sola consulta y un solo odontograma.
 
 - Acción: `POST /api/appointments/{id}/start-attendance/`.
 - Requiere `consultations.create` y alcance sobre la cita.
-- Estados de origen: `PROGRAMADA` o `CONFIRMADA`.
+- Estados de origen: `PROGRAMADA`, `CONFIRMADA` o `PRESENTE`, dentro del intervalo programado.
 - Error de dominio estable: `appointment_cannot_start_attendance` con HTTP 409.
 - El PATCH genérico no puede entrar a `EN_ATENCION`, completar una cita desde el
   flujo administrativo ni cancelar/marcar inasistencia tras iniciar consulta.
@@ -72,4 +76,3 @@ Las huellas agregadas de los datos preexistentes permanecieron iguales:
 - TEC-07: parcial; se aplicó expandir/verificar/activar para este bloque.
 
 No se implementaron cierre o cancelación clínica, HU-46 ni `TreatmentItem`.
-

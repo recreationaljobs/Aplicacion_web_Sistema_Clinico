@@ -55,6 +55,7 @@ def find_possible_patient_duplicates(
     phone="",
     exclude_patient_id=None,
     limit=MAX_POSSIBLE_DUPLICATES,
+    queryset=None,
 ):
     phone_key = normalize_phone_key(phone)
     first_name_key = normalize_name_key(first_name)
@@ -63,7 +64,7 @@ def find_possible_patient_duplicates(
     if not phone_key and not has_name_rule:
         return []
 
-    queryset = Patient.objects.annotate(
+    queryset = (Patient.objects.all() if queryset is None else queryset).annotate(
         _duplicate_phone_key=phone_key_expression(),
         _duplicate_first_name_key=normalized_name_expression("first_name"),
         _duplicate_last_name_key=normalized_name_expression("last_name"),

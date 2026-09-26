@@ -19,6 +19,7 @@ from apps.common.test_utils import open_clinic_days
 from apps.patients.models import Consultation, OdontogramVersion, Patient
 from apps.users.models import RolePermissionPreset, User
 
+from apps.common.test_utils import assign_test_patient
 from . import models as appointment_models
 from .models import Appointment
 
@@ -57,6 +58,9 @@ class AppointmentApiTests(APITestCase):
     list_url = "/api/appointments/"
 
     def setUp(self):
+        clock = patch("django.utils.timezone.now", return_value=datetime(2026, 8, 12, 15, 0, tzinfo=UTC))
+        clock.start()
+        self.addCleanup(clock.stop)
         open_clinic_days()
         self.receptionist = User.objects.create_user(
             email="recepcion-citas@dentalclinic.com",
@@ -260,7 +264,7 @@ class AppointmentApiTests(APITestCase):
         response = self.client.get(f"{self.list_url}?date=2026-08-12")
         self.assertEqual([item["id"] for item in response.data["results"]], [own.pk])
 
-    def test_dentist_with_view_all_lists_the_team_appointments(self):
+    def test_dentist_with_view_all_still_lists_only_own_appointments(self):
         first = self.create_appointment(dentist=self.dentist)
         second = self.create_appointment(
             patient=self.other_patient,
@@ -278,7 +282,7 @@ class AppointmentApiTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             [item["id"] for item in response.data["results"]],
-            [first.pk, second.pk],
+            [first.pk],
         )
 
     def test_dentist_without_view_all_cannot_retrieve_another_dentists_appointment(self):
@@ -408,6 +412,7 @@ class AppointmentApiTests(APITestCase):
         )
 
     def test_restricted_dentist_can_only_create_and_edit_their_own_appointments(self):
+        assign_test_patient(self.patient, self.dentist)
         RolePermissionPreset.objects.update_or_create(
             role=User.Role.ODONTOLOGO,
             defaults={

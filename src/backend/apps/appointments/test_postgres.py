@@ -30,6 +30,9 @@ class PostgresAppointmentTestBase(TransactionTestCase):
 
     def setUp(self):
         super().setUp()
+        clock = patch("django.utils.timezone.now", return_value=datetime(2027, 1, 11, 15, 0, tzinfo=UTC))
+        clock.start()
+        self.addCleanup(clock.stop)
         open_clinic_days()
         self.client = APIClient()
         ClinicProfile.objects.get_or_create(pk=1)

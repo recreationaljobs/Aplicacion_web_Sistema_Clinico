@@ -2,6 +2,8 @@
 
 **Estado:** Implementada y validada el 1 de septiembre de 2026.
 
+**Actualización 25/09/2026:** el odontólogo siempre recibe sólo sus citas y pacientes asignados, incluso con `view_all`. Se reutiliza Pacientes como “Mis pacientes”, con próxima cita y última consulta propias. Véase el [contrato y evidencia actualizados](../patient-assignment-access.md); las cifras posteriores pertenecen al cierre inicial.
+
 ## Alcance implementado
 
 La vista diaria de agenda mantiene una columna por odontólogo y ahora identifica
@@ -10,8 +12,8 @@ ordenan por nombre y muestran `1 cita` o `N citas`; no se introdujeron conceptos
 de consultorio, sala o sillón.
 
 Se conserva el contrato existente `GET /api/appointments/?date=AAAA-MM-DD` y su
-alcance por permisos: recepción y perfiles con `appointments.view_all` pueden
-ver la agenda general, mientras un odontólogo restringido sólo recibe sus citas.
+alcance por permisos: recepción y perfiles no odontólogos con `appointments.view_all`
+pueden ver la agenda general, mientras cualquier odontólogo sólo recibe sus citas.
 Las vistas semanal y mensual no cambian.
 
 ## Interfaces afectadas

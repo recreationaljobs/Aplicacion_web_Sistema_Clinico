@@ -40,7 +40,7 @@ export default function Sidebar() {
                 className={({ isActive }) => `flex items-center gap-3 rounded-md px-2.5 py-2.5 text-[13px] font-medium no-underline transition-colors ${isActive ? 'bg-[#e5eff8] text-[#0068b5]' : 'text-[#354052] hover:bg-slate-50 hover:text-slate-950'}`}
               >
                 <MenuIcon name={icon} />
-                {label}
+                {to === '/pacientes' && user.role === 'ODONTOLOGO' ? 'Mis pacientes' : label}
               </NavLink>
             </li>
           ))}

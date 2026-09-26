@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 import shutil
 import tempfile
 from datetime import date, time
@@ -104,7 +105,7 @@ class PatientDocumentApiTests(APITestCase):
         return f"/api/patients/{(patient or self.patient).pk}/documents/"
 
     def create_consultation(self, patient, consultation_date):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=patient,
             professional=self.dentist,
             date=consultation_date,

@@ -4,6 +4,7 @@ from django.db import transaction
 from rest_framework.exceptions import ValidationError
 
 from .models import Consultation, OdontogramVersion, Patient
+from .access import odontograms_visible_to
 
 
 PERMANENT_TEETH = {
@@ -173,11 +174,12 @@ def create_initial_odontogram_version(consultation):
         existing = OdontogramVersion.objects.filter(consultation=consultation).first()
         if existing:
             return existing
-        previous = OdontogramVersion.objects.filter(patient=patient).first()
+        latest = OdontogramVersion.objects.filter(patient=patient).first()
+        previous = odontograms_visible_to(consultation.professional).filter(patient=patient).first()
         return OdontogramVersion.objects.create(
             patient=patient,
             consultation=consultation,
-            version_number=(previous.version_number + 1) if previous else 1,
+            version_number=(latest.version_number + 1) if latest else 1,
             dentition=(
                 previous.dentition
                 if previous

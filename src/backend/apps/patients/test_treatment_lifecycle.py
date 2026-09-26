@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 from datetime import date, time
 from unittest.mock import patch
 
@@ -41,7 +42,7 @@ class TreatmentLifecycleMixin:
         )
 
     def create_consultation(self, *, patient=None, status=Consultation.Status.IN_PROGRESS):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=patient or self.patient,
             professional=self.dentist,
             professional_name_snapshot="Elena Rivera",

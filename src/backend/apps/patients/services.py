@@ -10,6 +10,7 @@ from apps.appointments.models import Appointment
 from apps.users.permissions import user_has_permission
 
 from .models import Consultation, OdontogramVersion, Patient, TreatmentItem
+from .access import consultations_visible_to, treatments_visible_to, odontograms_visible_to
 from .traceability import record_revision
 from .odontograms import (
     CURRENT_SURFACE_FINDINGS,
@@ -79,9 +80,9 @@ def _require_treatment_edit_permission(actor):
         raise PermissionDenied("No tienes permiso para gestionar tratamientos clínicos.")
 
 
-def _locked_treatment_item(treatment_item_id):
+def _locked_treatment_item(treatment_item_id, actor):
     return (
-        TreatmentItem.objects.select_for_update(of=("self",))
+        treatments_visible_to(actor).select_for_update(of=("self",))
         .select_related("proposed_in", "proposed_in__patient", "performed_in")
         .get(pk=treatment_item_id)
     )
@@ -97,7 +98,7 @@ def _invalid_treatment_transition(item, target):
 def accept_treatment_item(*, treatment_item_id, actor):
     _require_treatment_edit_permission(actor)
     with transaction.atomic():
-        item = _locked_treatment_item(treatment_item_id)
+        item = _locked_treatment_item(treatment_item_id, actor)
         previous_status = item.status
         if item.status == TreatmentItem.Status.ACCEPTED:
             item._transition_from = previous_status
@@ -119,7 +120,7 @@ def cancel_treatment_item(*, treatment_item_id, actor, reason=""):
             "El motivo de cancelación no puede exceder 1000 caracteres.",
         )
     with transaction.atomic():
-        item = _locked_treatment_item(treatment_item_id)
+        item = _locked_treatment_item(treatment_item_id, actor)
         previous_status = item.status
         if item.status == TreatmentItem.Status.CANCELLED:
             item._transition_from = previous_status
@@ -199,8 +200,9 @@ def _validate_odontogram_result(item, latest, result):
 
 def _create_resulting_odontogram_version(*, item, performed_in, actor, result):
     patient = Patient.objects.select_for_update().get(pk=performed_in.patient_id)
+    latest_number = OdontogramVersion.objects.filter(patient=patient).values_list("version_number", flat=True).first()
     latest = (
-        OdontogramVersion.objects.filter(patient=patient)
+        odontograms_visible_to(performed_in.professional).filter(patient=patient)
         .order_by("-version_number")
         .first()
     )
@@ -235,7 +237,7 @@ def _create_resulting_odontogram_version(*, item, performed_in, actor, result):
     return OdontogramVersion.objects.create(
         patient=patient,
         consultation=performed_in,
-        version_number=latest.version_number + 1,
+        version_number=latest_number + 1,
         dentition=latest.dentition,
         teeth=normalized_teeth,
         changed_teeth=[tooth_code],
@@ -254,7 +256,7 @@ def perform_treatment_item(
 ):
     _require_treatment_edit_permission(actor)
     with transaction.atomic():
-        item = _locked_treatment_item(treatment_item_id)
+        item = _locked_treatment_item(treatment_item_id, actor)
         previous_status = item.status
         if item.status == TreatmentItem.Status.PERFORMED:
             if item.performed_in_id == performed_in_id:
@@ -265,7 +267,7 @@ def perform_treatment_item(
             _invalid_treatment_transition(item, TreatmentItem.Status.PERFORMED)
 
         performed_in = (
-            Consultation.objects.select_for_update(of=("self",))
+            consultations_visible_to(actor).select_for_update(of=("self",))
             .select_related("patient")
             .get(pk=performed_in_id)
         )
@@ -307,7 +309,7 @@ def perform_treatment_item(
         return item
 
 
-def _locked_consultation_and_appointment(consultation_id):
+def _locked_consultation_and_appointment(consultation_id, actor):
     appointment_id = (
         Appointment.objects.filter(consultation_id=consultation_id)
         .values_list("pk", flat=True)
@@ -321,7 +323,7 @@ def _locked_consultation_and_appointment(consultation_id):
             .get(pk=appointment_id)
         )
     consultation = (
-        Consultation.objects.select_for_update(of=("self",))
+        consultations_visible_to(actor).select_for_update(of=("self",))
         .select_related("patient", "professional", "completed_by")
         .get(pk=consultation_id)
     )
@@ -352,7 +354,7 @@ def _validate_existing_clinical_minimum(consultation):
 def complete_consultation(*, consultation_id, actor):
     _require_clinical_edit_permission(actor)
     with transaction.atomic():
-        consultation, appointment = _locked_consultation_and_appointment(consultation_id)
+        consultation, appointment = _locked_consultation_and_appointment(consultation_id, actor)
         if consultation.status == Consultation.Status.COMPLETED:
             if appointment is not None and appointment.status != Appointment.Status.COMPLETED:
                 raise ConsultationOperationError(
@@ -390,7 +392,7 @@ def complete_consultation(*, consultation_id, actor):
 def cancel_consultation(*, consultation_id, actor):
     _require_clinical_edit_permission(actor)
     with transaction.atomic():
-        consultation, appointment = _locked_consultation_and_appointment(consultation_id)
+        consultation, appointment = _locked_consultation_and_appointment(consultation_id, actor)
         if consultation.status == Consultation.Status.CANCELLED:
             return ConsultationOperationResult(consultation, appointment)
         if consultation.status != Consultation.Status.IN_PROGRESS:

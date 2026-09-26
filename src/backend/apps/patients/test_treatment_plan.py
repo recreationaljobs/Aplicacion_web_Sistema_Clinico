@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 from datetime import date, datetime, time, timezone as datetime_timezone
 
 from django.db import connection
@@ -57,7 +58,7 @@ class LongitudinalTreatmentPlanApiTests(APITestCase):
         )
 
     def create_consultation(self, patient, consultation_date):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=patient,
             professional=self.dentist,
             professional_name_snapshot="Odontóloga longitudinal",

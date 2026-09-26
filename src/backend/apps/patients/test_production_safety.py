@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 from datetime import date
 from unittest.mock import patch
 from django.test import override_settings
@@ -18,7 +19,7 @@ class ClinicalSafetyTests(APITestCase):
             first_name="Demo", last_name="Paciente", birth_place="Managua",
             date_of_birth=date(1990, 1, 1), gender="FEMENINO", registered_by=self.user,
         )
-        self.consultation = Consultation.objects.create(
+        self.consultation = assigned_test_consultation(
             patient=self.patient, professional=self.user, date=date(2026, 9, 1),
             time="09:00", consultation_type="GENERAL", summary="Control",
             status=Consultation.Status.IN_PROGRESS,

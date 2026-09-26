@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 from datetime import date
 
 from django.apps import apps
@@ -58,7 +59,7 @@ class ClinicalTraceabilityTests(APITestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_completed_consultation_accepts_immutable_addendum_without_changing_original(self):
-        consultation = Consultation.objects.create(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original summary", status="COMPLETADA")
+        consultation = assigned_test_consultation(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original summary", status="COMPLETADA")
         self.client.force_authenticate(self.dentist)
         url = self.url + f"consultations/{consultation.pk}/amendments/"
         response = self.client.post(url, {"reason": "Correct transcription", "content": "Corrected clinical note"}, format="json")
@@ -74,12 +75,12 @@ class ClinicalTraceabilityTests(APITestCase):
             amendment.delete()
 
     def test_reception_cannot_create_clinical_addendum(self):
-        consultation = Consultation.objects.create(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original", status="COMPLETADA")
+        consultation = assigned_test_consultation(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original", status="COMPLETADA")
         response = self.client.post(self.url + f"consultations/{consultation.pk}/amendments/", {"reason": "Correction", "content": "Note"}, format="json")
         self.assertEqual(response.status_code, 403)
 
     def test_malformed_surfaces_return_validation_errors(self):
-        consultation = Consultation.objects.create(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original", status="EN_PROGRESO")
+        consultation = assigned_test_consultation(patient=self.patient, professional=self.dentist, date=date(2026, 9, 16), time="09:00", consultation_type="GENERAL", summary="Original", status="EN_PROGRESO")
         self.client.force_authenticate(self.dentist)
         for surfaces in ([{}], [["MESIAL"]]):
             with self.subTest(surfaces=surfaces):

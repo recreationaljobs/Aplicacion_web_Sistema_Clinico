@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation, start_test_attendance
 from datetime import date, time
 
 from rest_framework.test import APITestCase
@@ -48,7 +49,7 @@ class FollowUpContinuityApiTests(APITestCase):
             duration_minutes=45,
             price="850.00",
         )
-        self.consultation_a = Consultation.objects.create(
+        self.consultation_a = assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             professional_name_snapshot="Elena Vargas",
@@ -99,10 +100,7 @@ class FollowUpContinuityApiTests(APITestCase):
         self.assertIsNone(appointment_b.consultation_id)
 
         self.client.force_authenticate(self.dentist)
-        attendance = self.client.post(
-            f"/api/appointments/{appointment_b.pk}/start-attendance/",
-            format="json",
-        )
+        attendance = start_test_attendance(self.client, appointment_b)
 
         self.assertEqual(attendance.status_code, 201)
         consultation_b = Consultation.objects.get(pk=attendance.data["consultation"]["id"])

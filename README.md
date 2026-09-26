@@ -74,6 +74,7 @@ CI ejecuta las suites completas en SQLite y PostgreSQL, auditorías de dependenc
 - Cambiar contenido del resumen clínico requiere `clinical_change_reason` en producción. Sus revisiones contienen snapshots completos, autor, fecha y motivo; el log general de auditoría excluye contenido clínico.
 - Las consultas completadas conservan su contenido original y aceptan adendas con motivo/contenido mediante `consultations.edit`. Las adendas son inmutables y aparecen en la interfaz y el PDF.
 - La agenda aplica horarios, pausas y cierres; PostgreSQL impide solapamientos. El registro de llegada se puede corregir antes de la atención, con motivo y versión. El inicio real usa la zona horaria de la clínica.
+- Para Odontología, “Mis pacientes” se deriva de sus citas actuales e históricas; consultas y contenido asociado se aíslan por profesional. Las nuevas consultas se inician desde una cita propia, dentro de su intervalo, con validación del servidor e idempotencia. [Contrato, análisis y verificación](docs/patient-assignment-access.md).
 - Documentos, avatares y logos usan almacenamiento externo en producción. Los documentos clínicos se retiran lógicamente y pueden restaurarse por Administración; la descarga siempre exige autenticación.
 
 ## Documentación
@@ -88,5 +89,7 @@ CI ejecuta las suites completas en SQLite y PostgreSQL, auditorías de dependenc
 ## Historias implementadas
 
 HU-01, HU-02, HU-03, HU-04, HU-05, HU-06, HU-07, HU-08, HU-09, HU-10, HU-11, HU-13, HU-16, HU-17, HU-18, HU-19, HU-20, HU-23, HU-28, HU-32, HU-35, HU-41, HU-43, HU-44, HU-45, HU-46, HU-47, HU-48, HU-49, HU-50, HU-51, HU-52, HU-53, HU-54, HU-55, HU-56, HU-58 y HU-61. Su evidencia y contratos se mantienen en [docs/user-stories/](docs/user-stories/).
+
+HU-19 y HU-44 se amplían con aislamiento por odontólogo, “Mis pacientes” basado en citas y validación del intervalo de atención en servidor, sin migraciones. La evidencia y las limitaciones se detallan en [pacientes asignados](docs/patient-assignment-access.md).
 
 La preparación actual añade trazabilidad del resumen y consulta, adendas, versión de citas, corrección de llegada y controles operativos. Los resultados de una versión histórica no certifican el despliegue definitivo: las conexiones reales, restauración del proveedor, TLS y cookies se verifican durante tu despliegue.

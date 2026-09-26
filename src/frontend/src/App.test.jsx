@@ -223,7 +223,7 @@ describe('authenticated routes', () => {
   it.each([
     ['ADMINISTRADOR', ['Dashboard', 'Pacientes', 'Citas', 'Configuración']],
     ['RECEPCIONISTA', ['Dashboard', 'Pacientes', 'Citas']],
-    ['ODONTOLOGO', ['Dashboard', 'Pacientes', 'Citas']],
+    ['ODONTOLOGO', ['Dashboard', 'Mis pacientes', 'Citas']],
   ])('shows only the effective navigation for %s', (role, expectedLinks) => {
     renderAuthenticated(role)
 
@@ -738,9 +738,9 @@ describe('authenticated routes', () => {
     }))
     renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas')
 
-    expect(await screen.findByRole('link', { name: 'Nueva consulta' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Citas' })).toHaveAttribute(
       'href',
-      '/pacientes/1/consultas/nueva',
+      '/citas',
     )
     expect((await screen.findAllByRole('link', { name: 'Ver detalle' }))[0]).toHaveAttribute(
       'href',
@@ -759,7 +759,7 @@ describe('authenticated routes', () => {
       if (url.endsWith('/api/patients/1/')) return Promise.resolve(jsonResponse(patientFixture))
       throw new Error(`Unexpected request: ${url}`)
     }))
-    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/nueva')
+    renderAuthenticated('ADMINISTRADOR', false, '/pacientes/1/consultas/nueva')
 
     expect(await screen.findByRole('heading', { name: 'Nueva consulta' })).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha')).not.toHaveValue('')
@@ -1035,7 +1035,7 @@ describe('authenticated routes', () => {
       if (url.endsWith('/api/patients/1/')) return Promise.resolve(jsonResponse(patientFixture))
       throw new Error(`Unexpected request: ${url}`)
     }))
-    renderAuthenticated('ODONTOLOGO', false, '/pacientes/1/consultas/nueva')
+    renderAuthenticated('ADMINISTRADOR', false, '/pacientes/1/consultas/nueva')
 
     fireEvent.change(await screen.findByLabelText('Tipo'), { target: { value: 'GENERAL' } })
     fireEvent.change(screen.getByLabelText('Resumen'), { target: { value: 'Nueva valoración clínica.' } })

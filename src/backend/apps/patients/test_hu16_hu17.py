@@ -1,3 +1,4 @@
+from apps.common.test_utils import assign_test_patient, assigned_test_consultation, start_test_attendance
 from datetime import date, datetime, time, timezone as datetime_timezone
 
 from rest_framework.test import APITestCase
@@ -159,6 +160,8 @@ class InactivePatientPolicyApiTests(APITestCase):
             role=User.Role.ODONTOLOGO,
         )
         self.patient = self.create_patient("Paciente", "Activo")
+        assign_test_patient(self.patient, self.dentist)
+        assign_test_patient(self.patient, self.restricted)
 
     def create_patient(self, first_name, last_name, *, active=True, phone="8888-1717"):
         return Patient.objects.create(
@@ -213,10 +216,7 @@ class InactivePatientPolicyApiTests(APITestCase):
         self.patient.save(update_fields=("is_active",))
         self.client.force_authenticate(self.admin)
 
-        response = self.client.post(
-            f"/api/appointments/{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        response = start_test_attendance(self.client, appointment)
 
         self.assertEqual(response.status_code, 409, response.data)
         self.assertEqual(response.data["code"], "patient_inactive")
@@ -239,12 +239,12 @@ class InactivePatientPolicyApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 409, response.data)
-        self.assertEqual(response.data["code"], "patient_inactive")
+        self.assertEqual(response.data["code"], "appointment_required")
         self.assertEqual(Consultation.objects.count(), 0)
         self.assertEqual(OdontogramVersion.objects.count(), 0)
 
     def test_inactive_patient_cannot_receive_new_treatment_but_history_remains_visible(self):
-        consultation = Consultation.objects.create(
+        consultation = assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             **self.consultation_payload(),
@@ -323,18 +323,9 @@ class InactivePatientPolicyApiTests(APITestCase):
         )
         self.client.force_authenticate(self.admin)
 
-        inactive_response = self.client.post(
-            f"/api/appointments/{inactive_appointment.pk}/start-attendance/",
-            format="json",
-        )
-        incomplete_response = self.client.post(
-            f"/api/appointments/{incomplete_appointment.pk}/start-attendance/",
-            format="json",
-        )
-        active_response = self.client.post(
-            f"/api/appointments/{active_appointment.pk}/start-attendance/",
-            format="json",
-        )
+        inactive_response = start_test_attendance(self.client, inactive_appointment)
+        incomplete_response = start_test_attendance(self.client, incomplete_appointment)
+        active_response = start_test_attendance(self.client, active_appointment)
 
         self.assertEqual(inactive_response.status_code, 409)
         self.assertEqual(inactive_response.data["code"], "patient_inactive")

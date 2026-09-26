@@ -17,6 +17,7 @@ import ConsultationRecordPage from '../Patients/ConsultationRecordPage'
 vi.mock('../../services/appointmentService', async (importOriginal) => ({
   ...await importOriginal(),
   createAppointment: vi.fn(),
+  getAppointment: vi.fn(),
   getAvailableDentists: vi.fn(),
   listAllAppointments: vi.fn(),
   startAppointmentAttendance: vi.fn(),
@@ -69,6 +70,7 @@ const appointment = (overrides = {}) => ({
   start_time: '09:00:00',
   end_time: '10:00:00',
   duration_minutes: 60,
+  attendance: { can_start: true, code: 'available' },
   reason: 'Valoración de ortodoncia',
   notes: 'Sensibilidad dental.',
   status: 'PROGRAMADA',
@@ -176,6 +178,10 @@ describe('AppointmentsPage', () => {
   })
 
   beforeEach(() => {
+    appointmentService.getAppointment.mockImplementation(async (_access, id) => {
+      const rows = await appointmentService.listAllAppointments.mock.results.at(-1).value
+      return rows.find((item) => item.id === id)
+    })
     listClinicServices.mockResolvedValue([])
     appointmentService.listAllAppointments.mockResolvedValue([appointment()])
     appointmentService.getAvailableDentists.mockResolvedValue([dentist])
@@ -591,7 +597,7 @@ describe('AppointmentsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
     expect(screen.getByRole('button', { name: 'Registrar llegada' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Iniciar atención' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar consulta' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Registrar llegada' }))
 
     expect(await screen.findByText('Llegada registrada.')).toBeInTheDocument()
@@ -611,7 +617,26 @@ describe('AppointmentsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
     expect(screen.queryByRole('button', { name: 'Registrar llegada' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Iniciar atención' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar consulta' })).toBeInTheDocument()
+  })
+
+  it('refreshes server attendance availability on focus and disables start on network errors', async () => {
+    const pending = appointment({ attendance: { can_start: false, detail: 'Aún no disponible' } })
+    appointmentService.listAllAppointments.mockResolvedValue([pending])
+    appointmentService.getAppointment.mockResolvedValue(pending)
+    renderPage({ role: 'ODONTOLOGO', permissions: ['appointments.view', 'consultations.create'] })
+    fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
+    expect(await screen.findByText('Aún no disponible')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar consulta' })).toBeDisabled()
+
+    appointmentService.getAppointment.mockResolvedValue(appointment())
+    fireEvent(window, new Event('focus'))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Iniciar consulta' })).toBeEnabled())
+
+    appointmentService.getAppointment.mockRejectedValue(new Error('Sin conexión'))
+    fireEvent(window, new Event('focus'))
+    expect(await screen.findByText(/No se pudo comprobar la disponibilidad/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar consulta' })).toBeDisabled()
   })
 
   it('[HU-58] loads and renders compact reschedule history only for an open detail', async () => {
@@ -674,7 +699,7 @@ describe('AppointmentsPage', () => {
     }
     renderPage(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
-    const startButton = screen.getByRole('button', { name: 'Iniciar atención' })
+    const startButton = screen.getByRole('button', { name: 'Iniciar consulta' })
 
     fireEvent.click(startButton)
     fireEvent.click(startButton)
@@ -708,7 +733,7 @@ describe('AppointmentsPage', () => {
     renderPage({ role: 'RECEPCIONISTA', permissions: ['appointments.view'] })
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
     expect(screen.queryByRole('button', { name: 'Abrir expediente' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Iniciar atención' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar consulta' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Continuar atención' })).not.toBeInTheDocument()
   })
 
@@ -725,7 +750,7 @@ describe('AppointmentsPage', () => {
     })
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    expect(screen.queryByRole('button', { name: 'Iniciar atención' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar consulta' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Continuar atención' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Ver consulta' }))
 
@@ -791,7 +816,7 @@ describe('AppointmentsPage', () => {
     renderClinicalFlow(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar atención' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar consulta' }))
 
     const banner = await screen.findByRole('region', { name: 'Alertas clínicas' })
     expect(within(banner).getByText('Penicilina — urticaria')).toBeInTheDocument()
@@ -811,7 +836,7 @@ describe('AppointmentsPage', () => {
     renderPage(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar atención' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar consulta' }))
 
     expect(screen.getByRole('button', { name: 'Iniciando…' })).toBeDisabled()
     rejectStart(new Error('La cita no está en un estado que permita iniciar la atención.'))
@@ -843,7 +868,7 @@ describe('AppointmentsPage', () => {
     renderPage(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar atención' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar consulta' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Complete el perfil antes de iniciar la atención.')
@@ -851,7 +876,7 @@ describe('AppointmentsPage', () => {
     expect(alert).toHaveTextContent('Nombre del responsable')
     expect(screen.getByRole('dialog', { name: 'Detalle de cita' })).toBeInTheDocument()
     expect(screen.getAllByText('Programada')).not.toHaveLength(0)
-    expect(screen.getByRole('button', { name: 'Iniciar atención' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Iniciar consulta' })).toBeEnabled()
     expect(screen.queryByText('Consulta clínica destino')).not.toBeInTheDocument()
     expect(appointmentService.listAllAppointments).toHaveBeenCalledTimes(1)
 
@@ -882,7 +907,7 @@ describe('AppointmentsPage', () => {
     renderPage(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Iniciar atención' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Iniciar consulta' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Teléfono')
@@ -905,6 +930,6 @@ describe('AppointmentsPage', () => {
     renderPage(clinicalUser)
     fireEvent.click(await screen.findByRole('button', { name: /Ana Pérez, 09:00 a 10:00/ }))
 
-    expect(screen.queryByRole('button', { name: 'Iniciar atención' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Iniciar consulta' })).not.toBeInTheDocument()
   })
 })

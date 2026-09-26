@@ -118,6 +118,14 @@ const completionDate = (value) => new Intl.DateTimeFormat('es-NI', {
 }).format(new Date(value))
 
 export default function ConsultationRecordPage({ isNew = false }) {
+  const { user } = useAuth()
+  if (isNew && user.role === 'ODONTOLOGO') {
+    return <div className="rounded-xl border border-slate-200 bg-white p-6"><p>La nueva consulta debe iniciarse desde una cita asignada, dentro de su horario de atención.</p><Link to="/citas" className="mt-4 inline-block font-semibold text-blue-700 underline">Ir a mis citas</Link></div>
+  }
+  return <ConsultationRecordForm isNew={isNew} />
+}
+
+function ConsultationRecordForm({ isNew }) {
   const { patientId, consultationId } = useParams()
   const { user, accessToken } = useAuth()
   const navigate = useNavigate()

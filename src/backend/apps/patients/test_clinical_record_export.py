@@ -1,3 +1,4 @@
+from apps.common.test_utils import assigned_test_consultation
 import re
 import shutil
 import tempfile
@@ -189,7 +190,7 @@ class ClinicalRecordExportApiTests(APITestCase):
         self.client.force_authenticate(self.dentist)
 
     def create_consultation(self, consultation_date, summary, *, status):
-        return Consultation.objects.create(
+        return assigned_test_consultation(
             patient=self.patient,
             professional=self.dentist,
             professional_name_snapshot="Dra. Elena Rivera",

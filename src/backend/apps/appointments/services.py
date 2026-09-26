@@ -16,6 +16,8 @@ from apps.users.models import User
 from apps.users.permissions import user_has_permission
 
 from .models import Appointment, AppointmentCheckInCorrection, AppointmentRescheduleEvent
+from .access import scope_appointments_for_user
+from .attendance import attendance_availability
 
 
 class AppointmentAttendanceError(Exception):
@@ -58,9 +60,7 @@ def _attendance_queryset_for_actor(actor):
         "dentist",
         "service",
     )
-    if user_has_permission(actor, "appointments.view_all"):
-        return queryset
-    return queryset.filter(dentist=actor)
+    return scope_appointments_for_user(queryset, actor)
 
 
 def check_in_appointment(*, appointment_id, actor):
@@ -158,15 +158,11 @@ def start_attendance(*, appointment_id, actor):
                 consultation=Consultation.objects.get(pk=appointment.consultation_id),
                 created=False,
             )
-        if appointment.status not in (
-            Appointment.Status.SCHEDULED,
-            Appointment.Status.CONFIRMED,
-            Appointment.Status.CHECKED_IN,
-        ):
-            raise AppointmentAttendanceError(
-                "appointment_cannot_start_attendance",
-                "La cita no está en un estado que permita iniciar la atención.",
-            )
+        started_at = timezone.now()
+        clinic_timezone = ClinicProfile.load().timezone
+        availability = attendance_availability(appointment, now=started_at, clinic_timezone=clinic_timezone)
+        if not availability["can_start"]:
+            raise AppointmentAttendanceError(availability["code"], availability["detail"])
         require_active_patient(
             appointment.patient,
             error_class=AppointmentAttendanceError,
@@ -176,8 +172,7 @@ def start_attendance(*, appointment_id, actor):
             error_class=AppointmentAttendanceError,
         )
 
-        started_at = timezone.now()
-        local_started_at = started_at.astimezone(ZoneInfo(ClinicProfile.load().timezone))
+        local_started_at = started_at.astimezone(ZoneInfo(clinic_timezone))
         consultation = Consultation.objects.create(
             patient=appointment.patient,
             professional=appointment.dentist,

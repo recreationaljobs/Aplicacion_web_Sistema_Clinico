@@ -43,7 +43,7 @@ export default function PatientConsultationsPanel({ accessToken, patientId, pati
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const canCreate = patientActive && (user.role === 'ADMINISTRADOR' || user.permissions?.includes('consultations.create'))
+  const canCreate = patientActive && user.role !== 'ODONTOLOGO' && (user.role === 'ADMINISTRADOR' || user.permissions?.includes('consultations.create'))
 
   useEffect(() => {
     let active = true
@@ -60,6 +60,7 @@ export default function PatientConsultationsPanel({ accessToken, patientId, pati
   }, [accessToken, page, patientId])
 
   return <section aria-labelledby="patient-consultations-title" className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    {patientActive && user.role === 'ODONTOLOGO' && user.permissions?.includes('consultations.create') ? <p className="px-6 pt-5 text-sm text-slate-600">Para iniciar una consulta, abre tu cita en <Link to="/citas" className="font-semibold text-blue-700 underline">Citas</Link>.</p> : null}
     <header className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
       <div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-700">Historial médico</p>
         <h2 id="patient-consultations-title" className="mt-1 font-sans text-2xl font-semibold text-slate-900">Consultas del paciente</h2>

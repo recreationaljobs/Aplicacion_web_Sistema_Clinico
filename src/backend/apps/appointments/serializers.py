@@ -2,6 +2,10 @@ from datetime import datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.utils import timezone
+from apps.patients.access import patients_visible_to
+from apps.clinics.models import ClinicProfile
+from .attendance import attendance_availability
 from apps.common.versioning import VersionedSerializer
 
 from apps.patients.models import Patient
@@ -58,6 +62,20 @@ def has_overlap(*, date, start_time, duration_minutes, dentist=None, patient=Non
 
 
 class AppointmentSerializer(VersionedSerializer):
+    attendance = serializers.SerializerMethodField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request:
+            self.fields["patient"].queryset = patients_visible_to(request.user)
+
+    def get_attendance(self, appointment):
+        if not hasattr(self, "_attendance_clock"):
+            self._attendance_clock = (timezone.now(), ClinicProfile.load().timezone)
+        now, clinic_timezone = self._attendance_clock
+        return attendance_availability(appointment, now=now, clinic_timezone=clinic_timezone)
+
     reschedule_reason = serializers.CharField(
         write_only=True,
         required=False,
@@ -86,7 +104,7 @@ class AppointmentSerializer(VersionedSerializer):
             "date", "start_time", "end_time", "duration_minutes", "reason", "notes",
             "status", "status_display", "cancellation_reason", "consultation",
             "attendance_started_at", "created_by",
-            "created_at", "updated_at", "reschedule_reason",
+            "created_at", "updated_at", "reschedule_reason", "attendance",
         )
         read_only_fields = (
             "id", "patient_name", "patient_code", "dentist_name", "end_time",

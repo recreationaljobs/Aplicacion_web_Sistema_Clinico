@@ -1,3 +1,4 @@
+from apps.common.test_utils import start_test_attendance
 from datetime import date, time, timedelta
 
 from django.utils import timezone
@@ -286,10 +287,7 @@ class IncompleteProfileSchedulingAndClinicalGateTests(Hu53PatientTestMixin, APIT
     def test_start_attendance_returns_structured_error_and_rolls_back(self):
         appointment = self.create_appointment()
 
-        response = self.client.post(
-            f"/api/appointments/{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        response = start_test_attendance(self.client, appointment)
 
         self.assert_incomplete_profile_error(response)
         appointment.refresh_from_db()

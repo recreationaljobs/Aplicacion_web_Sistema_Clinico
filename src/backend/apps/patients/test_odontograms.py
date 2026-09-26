@@ -1,3 +1,4 @@
+from apps.common.test_utils import legacy_consultation_response
 from rest_framework.test import APITestCase
 
 from apps.users.models import RolePermissionPreset, User
@@ -63,11 +64,7 @@ class OdontogramApiTests(APITestCase):
 
     def create_consultation(self, **overrides):
         self.client.force_authenticate(self.dentist)
-        return self.client.post(
-            self.consultations_url,
-            self.consultation_payload(**overrides),
-            format="json",
-        )
+        return legacy_consultation_response(self.patient, self.dentist, self.consultation_payload(**overrides))
 
     def odontogram_url(self, consultation_id, patient=None):
         patient = patient or self.patient
@@ -151,11 +148,7 @@ class OdontogramApiTests(APITestCase):
                     registered_by=self.admin,
                 )
                 self.client.force_authenticate(self.dentist)
-                consultation = self.client.post(
-                    f"/api/patients/{patient.pk}/consultations/",
-                    self.consultation_payload(),
-                    format="json",
-                )
+                consultation = legacy_consultation_response(patient, self.dentist, self.consultation_payload())
                 chart = self.client.get(
                     self.odontogram_url(consultation.data["id"], patient)
                 )

@@ -1,3 +1,4 @@
+from apps.common.test_utils import start_test_attendance
 import shutil
 import tempfile
 from copy import deepcopy
@@ -439,10 +440,7 @@ class AuditEventClassificationTests(APITestCase):
             self.appointment_payload(),
             format="json",
         )
-        started = self.client.post(
-            f"/api/appointments/{appointment.data['id']}/start-attendance/",
-            format="json",
-        )
+        started = start_test_attendance(self.client, Appointment.objects.get(pk=appointment.data["id"]))
         consultation_id = started.data["consultation"]["id"]
 
         completed = self.client.post(

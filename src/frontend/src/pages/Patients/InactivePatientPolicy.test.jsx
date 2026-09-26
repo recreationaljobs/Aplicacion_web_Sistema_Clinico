@@ -154,7 +154,7 @@ describe('inactive patient frontend policy', () => {
     expect(screen.queryByRole('button', { name: /Programar próxima cita/i })).not.toBeInTheDocument()
   })
 
-  it('makes a directly opened new consultation read-only for an inactive patient', async () => {
+  it('requires an appointment even for a directly opened new consultation', async () => {
     patientService.getPatient.mockResolvedValue({ ...activePatient, is_active: false })
     renderDataRoute(
       '/pacientes/1/consultas/nueva',
@@ -162,10 +162,9 @@ describe('inactive patient frontend policy', () => {
       <ConsultationRecordPage isNew />,
     )
 
-    expect(await screen.findByText(/paciente está inactivo/i)).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Ir a mis citas' })).toHaveAttribute('href', '/citas')
     expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Resumen')).not.toBeInTheDocument()
-    expect(screen.getByText('Resumen')).toBeInTheDocument()
   })
 
   it('shows inactive appointment context and suppresses start attendance', () => {

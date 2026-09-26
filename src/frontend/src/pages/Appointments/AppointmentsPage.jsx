@@ -4,6 +4,7 @@ import { useAuth } from '../../context/authContextValue'
 import {
   checkInAppointment,
   createAppointment,
+  getAppointment,
   listAllAppointments,
   listAppointmentReschedules,
   startAppointmentAttendance,
@@ -80,6 +81,34 @@ export default function AppointmentsPage() {
   }, [accessToken, agendaFilters])
 
   useEffect(() => loadAgenda(), [loadAgenda])
+
+  const selectedAppointmentId = selectedAppointment?.id
+  useEffect(() => {
+    if (!selectedAppointmentId || !canStartAttendance) return undefined
+    let active = true
+    let pending = false
+    const refresh = async () => {
+      if (pending) return
+      pending = true
+      try {
+        const latest = await getAppointment(accessToken, selectedAppointmentId)
+        if (active) {
+          setSelectedAppointment((current) => current?.version > latest.version ? current : latest)
+          setAppointments((current) => current.map((item) => item.id === latest.id && !(item.version > latest.version) ? latest : item))
+        }
+      } catch {
+        if (active) setSelectedAppointment((current) => current ? {
+          ...current, attendance: { can_start: false, detail: 'No se pudo comprobar la disponibilidad. Se volverá a consultar al servidor.' },
+        } : current)
+      } finally {
+        pending = false
+      }
+    }
+    refresh()
+    const timer = window.setInterval(refresh, 15000)
+    window.addEventListener('focus', refresh)
+    return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', refresh) }
+  }, [accessToken, canStartAttendance, selectedAppointmentId])
 
   useEffect(() => {
     if (!selectedAppointment?.id) {

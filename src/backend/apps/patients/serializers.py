@@ -30,6 +30,7 @@ from .models import (
     TreatmentItem,
 )
 from .duplicates import PossiblePatientDuplicate
+from .access import consultations_visible_to
 from .traceability import clinical_snapshot, clinical_snapshot_value, record_revision
 from .identifiers import (
     format_cedula,
@@ -69,6 +70,20 @@ class PatientProfileSerializationMixin:
 class PatientSummarySerializer(PatientProfileSerializationMixin, serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     profile_complete = serializers.SerializerMethodField()
+    next_appointment_date = serializers.DateField(read_only=True, allow_null=True)
+    next_appointment_time = serializers.TimeField(read_only=True, allow_null=True)
+    next_appointment_status = serializers.CharField(read_only=True, allow_null=True)
+    last_consultation_date = serializers.DateField(read_only=True, allow_null=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request is None or request.user.role != "ODONTOLOGO":
+            for field in (
+                "next_appointment_date", "next_appointment_time",
+                "next_appointment_status", "last_consultation_date",
+            ):
+                self.fields.pop(field)
 
     class Meta:
         model = Patient
@@ -85,6 +100,7 @@ class PatientSummarySerializer(PatientProfileSerializationMixin, serializers.Mod
             "is_active",
             "profile_complete",
             "created_at",
+            "next_appointment_date", "next_appointment_time", "next_appointment_status", "last_consultation_date",
         )
         read_only_fields = fields
 
@@ -910,6 +926,8 @@ def validate_patient_document_context(attrs, *, patient, request, instance=None)
         raise serializers.ValidationError({
             "consultation_id": "La consulta debe pertenecer al mismo paciente."
         })
+    if consultation is not None and not consultations_visible_to(request.user).filter(pk=consultation.pk).exists():
+        raise PermissionDenied("No tienes acceso a esta consulta.")
 
     category = attrs.get(
         "category",

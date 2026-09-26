@@ -1,3 +1,4 @@
+from apps.common.test_utils import start_test_attendance
 from datetime import date, time
 
 from django.apps import apps
@@ -129,10 +130,7 @@ class AppointmentAgendaOperationsApiTests(APITestCase):
         self.assertEqual(Consultation.objects.count(), 0)
 
         self.client.force_authenticate(self.dentist)
-        started = self.client.post(
-            f"{self.list_url}{appointment.pk}/start-attendance/",
-            format="json",
-        )
+        started = start_test_attendance(self.client, appointment)
 
         self.assertEqual(started.status_code, 201, started.data)
         self.assertEqual(

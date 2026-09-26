@@ -11,11 +11,12 @@ from rest_framework.views import APIView
 
 from apps.users.models import User
 from apps.clinics.locking import serialized_schedule
-from apps.users.permissions import HasCapability, user_has_permission
+from apps.users.permissions import HasCapability
 from apps.common.pagination import StandardPageNumberPagination
 from apps.patients.serializers import ConsultationSerializer
 
 from .models import Appointment, AppointmentRescheduleEvent, BLOCKING_APPOINTMENT_STATUSES
+from .access import can_view_all_appointments, scope_appointments_for_user
 from .services import (
     AppointmentAttendanceError,
     AppointmentCheckInError,
@@ -55,16 +56,6 @@ def appointment_integrity_conflict(error):
     if payload is None:
         raise error
     return Response(payload, status=status.HTTP_409_CONFLICT)
-
-
-def can_view_all_appointments(user):
-    return user_has_permission(user, "appointments.view_all")
-
-
-def scope_appointments_for_user(queryset, user):
-    if can_view_all_appointments(user):
-        return queryset
-    return queryset.filter(dentist=user)
 
 
 def enforce_dentist_assignment_scope(request):

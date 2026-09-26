@@ -19,6 +19,10 @@ from apps.clinics.models import ClinicProfile
 from apps.common.pagination import StandardPageNumberPagination
 
 from .models import Consultation, OdontogramVersion, Patient, PatientDocument, TreatmentItem
+from .access import (
+    patients_visible_to, consultations_visible_to, odontograms_visible_to,
+    documents_visible_to, treatments_visible_to, with_dentist_summary,
+)
 from .clinical_record_pdf import build_clinical_record_pdf
 from .odontograms import OdontogramConflict
 from .duplicates import find_possible_patient_duplicates
@@ -85,7 +89,7 @@ class PatientClinicalRecordExportView(APIView):
     def get(self, request, pk):
         request._request.audit_action = "CLINICAL_RECORD_EXPORT"
         patient = get_object_or_404(
-            Patient.objects.select_related("clinical_record"),
+            patients_visible_to(request.user).select_related("clinical_record"),
             pk=pk,
         )
         clinic = ClinicProfile.objects.filter(pk=1).first() or ClinicProfile()
@@ -94,6 +98,7 @@ class PatientClinicalRecordExportView(APIView):
             clinic=clinic,
             generated_at=timezone.now(),
             include_documents=user_has_permission(request.user, "documents.view"),
+            actor=request.user,
         )
         safe_code = "".join(
             character if character.isalnum() or character in "-_" else "-"
@@ -143,7 +148,10 @@ class PatientListCreateView(generics.ListCreateAPIView):
                     "con un prefijo - opcional."
                 ),
             })
-        return super().get_queryset().order_by(*ordering)
+        queryset = patients_visible_to(self.request.user, super().get_queryset())
+        if self.request.user.role == User.Role.ODONTOLOGO:
+            queryset = with_dentist_summary(queryset, self.request.user)
+        return queryset.order_by(*ordering)
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -185,6 +193,9 @@ class PatientDetailView(generics.RetrieveUpdateAPIView):
     }
     http_method_names = ("get", "patch", "head", "options")
 
+    def get_queryset(self):
+        return patients_visible_to(self.request.user, super().get_queryset())
+
 
 class PatientOptionListView(generics.ListAPIView):
     serializer_class = PatientOptionSerializer
@@ -205,7 +216,7 @@ class PatientOptionListView(generics.ListAPIView):
         search = self.request.query_params.get("search", "").strip()
         if len(search) < 2:
             return Patient.objects.none()
-        return Patient.objects.filter(is_active=True).order_by(
+        return patients_visible_to(self.request.user).filter(is_active=True).order_by(
             "first_name",
             "last_name",
             "pk",
@@ -234,7 +245,9 @@ class PatientDuplicateCheckView(APIView):
     def post(self, request):
         serializer = PatientDuplicateCheckSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        matches = find_possible_patient_duplicates(**serializer.validated_data)
+        matches = find_possible_patient_duplicates(
+            **serializer.validated_data, queryset=patients_visible_to(request.user),
+        )
         return Response({
             "has_matches": bool(matches),
             "matches": PossiblePatientDuplicateSerializer(matches, many=True).data,
@@ -258,7 +271,7 @@ class RecentConsultationListView(generics.ListAPIView):
     required_permissions = {"GET": "consultations.view"}
 
     def get_queryset(self):
-        queryset = Consultation.objects.select_related("patient", "professional")
+        queryset = consultations_visible_to(self.request.user).select_related("patient", "professional")
         if not user_has_permission(self.request.user, "consultations.view_all"):
             queryset = queryset.filter(professional=self.request.user)
         return queryset.order_by("-date", "-time", "-created_at")[:4]
@@ -276,7 +289,7 @@ class PatientDashboardSummaryView(APIView):
             F("pk").desc(),
         )
         recently_attended = (
-            Consultation.objects.filter(
+            consultations_visible_to(request.user).filter(
                 status=Consultation.Status.COMPLETED,
                 date__lte=clinic_today(),
             )
@@ -292,7 +305,7 @@ class PatientDashboardSummaryView(APIView):
             .order_by(*latest_attendance_order)[:4]
         )
         return Response({
-            "total_patients": Patient.objects.count(),
+            "total_patients": patients_visible_to(request.user).count(),
             "recently_attended": RecentlyAttendedPatientSerializer(
                 recently_attended,
                 many=True,
@@ -311,7 +324,7 @@ class PatientConsultationListView(generics.ListCreateAPIView):
 
     def get_patient(self):
         if not hasattr(self, "_patient"):
-            self._patient = get_object_or_404(Patient, pk=self.kwargs["pk"])
+            self._patient = get_object_or_404(patients_visible_to(self.request.user), pk=self.kwargs["pk"])
         return self._patient
 
     def get_serializer_class(self):
@@ -325,14 +338,19 @@ class PatientConsultationListView(generics.ListCreateAPIView):
     def get_queryset(self):
         patient = self.get_patient()
         if self.request.query_params.get("compact", "").lower() == "true":
-            return Consultation.objects.filter(patient_id=patient.pk).only("id", "date")
-        return Consultation.objects.select_related("professional", "completed_by").filter(
+            return consultations_visible_to(self.request.user).filter(patient_id=patient.pk).only("id", "date")
+        return consultations_visible_to(self.request.user).select_related("professional", "completed_by").filter(
             patient_id=patient.pk
         )
 
     def create(self, request, *args, **kwargs):
         patient = self.get_patient()
         request._request.audit_patient_id = patient.pk
+        if request.user.role == User.Role.ODONTOLOGO:
+            return Response({
+                "code": "appointment_required",
+                "detail": "Inicia la consulta desde una cita asignada, dentro de su horario de atención.",
+            }, status=status.HTTP_409_CONFLICT)
         try:
             return super().create(request, *args, **kwargs)
         except ConsultationOperationError as error:
@@ -357,7 +375,7 @@ class PatientTreatmentItemListView(generics.ListAPIView):
 
     def get_queryset(self):
         patient_id = self.kwargs["pk"]
-        get_object_or_404(Patient, pk=patient_id)
+        get_object_or_404(patients_visible_to(self.request.user), pk=patient_id)
         self.request.audit_patient_id = patient_id
         requested_status = self.request.query_params.get("status", "").strip()
         requested_scope = self.request.query_params.get("scope", "").strip()
@@ -374,7 +392,7 @@ class PatientTreatmentItemListView(generics.ListAPIView):
                 {"scope": "Selecciona pending o history."}
             )
 
-        queryset = TreatmentItem.objects.select_related(
+        queryset = treatments_visible_to(self.request.user).select_related(
             "proposed_in",
             "performed_in",
             "service",
@@ -426,10 +444,10 @@ class PatientPlannedOdontogramOverlayView(generics.ListAPIView):
 
     def get_queryset(self):
         patient_id = self.kwargs["pk"]
-        get_object_or_404(Patient, pk=patient_id)
+        get_object_or_404(patients_visible_to(self.request.user), pk=patient_id)
         self.request.audit_patient_id = patient_id
         return (
-            TreatmentItem.objects.select_related("proposed_in")
+            treatments_visible_to(self.request.user).select_related("proposed_in")
             .filter(
                 proposed_in__patient_id=patient_id,
                 status__in=(
@@ -455,7 +473,7 @@ class PatientConsultationDetailView(generics.RetrieveUpdateAPIView):
     http_method_names = ("get", "patch", "head", "options")
 
     def get_queryset(self):
-        return Consultation.objects.select_related("patient", "professional", "completed_by").filter(
+        return consultations_visible_to(self.request.user).select_related("patient", "professional", "completed_by").filter(
             patient_id=self.kwargs["patient_pk"]
         )
 
@@ -467,7 +485,7 @@ class PatientConsultationOperationView(generics.GenericAPIView):
     operation = None
 
     def get_queryset(self):
-        return Consultation.objects.filter(patient_id=self.kwargs["patient_pk"])
+        return consultations_visible_to(self.request.user).filter(patient_id=self.kwargs["patient_pk"])
 
     def post(self, request, *args, **kwargs):
         consultation = self.get_object()
@@ -511,7 +529,7 @@ class ConsultationTreatmentItemMixin:
     def get_consultation(self):
         if not hasattr(self, "_consultation"):
             self._consultation = get_object_or_404(
-                Consultation.objects.select_related("patient"),
+                consultations_visible_to(self.request.user).select_related("patient"),
                 pk=self.kwargs["consultation_pk"],
                 patient_id=self.kwargs["patient_pk"],
             )
@@ -525,7 +543,7 @@ class ConsultationTreatmentItemMixin:
 
     def get_queryset(self):
         consultation = self.get_consultation()
-        return TreatmentItem.objects.select_related("service", "service__category").filter(
+        return treatments_visible_to(self.request.user).select_related("service", "service__category").filter(
             proposed_in=consultation,
         )
 
@@ -640,6 +658,7 @@ class ConsultationTreatmentItemPerformView(ConsultationTreatmentItemOperationVie
     def operation_kwargs(self, request):
         serializer = TreatmentItemPerformSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        get_object_or_404(consultations_visible_to(request.user), pk=serializer.validated_data["performed_in"])
         return {
             "performed_in_id": serializer.validated_data["performed_in"],
             "odontogram_result": serializer.validated_data.get("odontogram_result"),
@@ -666,7 +685,7 @@ class ConsultationOdontogramView(generics.RetrieveAPIView):
 
     def get_object(self):
         consultation = get_object_or_404(
-            Consultation,
+            consultations_visible_to(self.request.user),
             pk=self.kwargs["consultation_pk"],
             patient_id=self.kwargs["patient_pk"],
         )
@@ -692,7 +711,7 @@ class ConsultationOdontogramVersionCreateView(generics.CreateAPIView):
 
     def get_consultation(self):
         return get_object_or_404(
-            Consultation,
+            consultations_visible_to(self.request.user),
             pk=self.kwargs["consultation_pk"],
             patient_id=self.kwargs["patient_pk"],
         )
@@ -727,8 +746,8 @@ class PatientOdontogramVersionListView(generics.ListAPIView):
     }
 
     def get_queryset(self):
-        patient = get_object_or_404(Patient, pk=self.kwargs["patient_pk"])
-        return OdontogramVersion.objects.select_related(
+        patient = get_object_or_404(patients_visible_to(self.request.user), pk=self.kwargs["patient_pk"])
+        return odontograms_visible_to(self.request.user).select_related(
             "consultation", "created_by"
         ).filter(patient=patient)
 
@@ -744,7 +763,7 @@ class PatientOdontogramVersionDetailView(generics.RetrieveAPIView):
     http_method_names = ("get", "head", "options")
 
     def get_queryset(self):
-        return OdontogramVersion.objects.select_related(
+        return odontograms_visible_to(self.request.user).select_related(
             "consultation", "created_by"
         ).filter(patient_id=self.kwargs["patient_pk"])
 
@@ -758,7 +777,7 @@ class PatientDocumentListCreateView(APIView):
     }
 
     def get_patient(self):
-        return get_object_or_404(Patient, pk=self.kwargs["patient_pk"])
+        return get_object_or_404(patients_visible_to(self.request.user), pk=self.kwargs["patient_pk"])
 
     def get(self, request, patient_pk):
         self.get_patient()
@@ -766,7 +785,7 @@ class PatientDocumentListCreateView(APIView):
         if retired and request.user.role != User.Role.ADMINISTRADOR:
             raise PermissionDenied("Solo un administrador puede consultar documentos retirados.")
         manager = PatientDocument.all_objects if retired else PatientDocument.objects
-        queryset = manager.select_related(
+        queryset = documents_visible_to(request.user, manager.all()).select_related(
             "uploaded_by",
             "consultation",
         ).filter(
@@ -843,9 +862,9 @@ class PatientDocumentDeleteView(APIView):
     }
 
     def get_patient_and_document(self, patient_pk, pk):
-        patient = get_object_or_404(Patient, pk=patient_pk)
+        patient = get_object_or_404(patients_visible_to(self.request.user), pk=patient_pk)
         document = get_object_or_404(
-            PatientDocument.objects.select_related("uploaded_by", "consultation"),
+            documents_visible_to(self.request.user).select_related("uploaded_by", "consultation"),
             pk=pk,
             patient=patient,
         )
@@ -912,7 +931,7 @@ class PatientDocumentContentView(APIView):
 
     def get(self, request, patient_pk, pk):
         document = get_object_or_404(
-            PatientDocument,
+            documents_visible_to(request.user),
             pk=pk,
             patient_id=patient_pk,
         )
@@ -935,7 +954,7 @@ class PatientDocumentCategoryListView(APIView):
     required_permissions = {"GET": "documents.view"}
 
     def get(self, request):
-        categories = PatientDocument.objects.order_by("created_at", "pk").values_list(
+        categories = documents_visible_to(request.user).order_by("created_at", "pk").values_list(
             "category",
             flat=True,
         )

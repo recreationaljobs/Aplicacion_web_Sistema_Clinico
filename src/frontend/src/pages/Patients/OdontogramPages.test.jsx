@@ -118,7 +118,7 @@ describe('versioned odontograms', () => {
 
   it('disables the odontogram until a new consultation is saved', async () => {
     vi.stubGlobal('fetch', vi.fn(baseFetch))
-    renderAt('/pacientes/1/consultas/nueva')
+    renderAt('/pacientes/1/consultas/nueva', 'ADMINISTRADOR')
 
     expect(await screen.findByRole('button', { name: 'Odontograma de la consulta' })).toBeDisabled()
     expect(screen.getByText('Guarda la consulta para abrir el odontograma')).toBeInTheDocument()

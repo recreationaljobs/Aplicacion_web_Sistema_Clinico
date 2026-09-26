@@ -48,6 +48,14 @@ function renderPage(user = {
 }
 
 describe('PatientsPage HU-16/HU-17', () => {
+  it('shows assigned patient summaries under Mis pacientes for dentists', async () => {
+    listPatients.mockResolvedValue({ count: 1, results: [{ ...patients[1], next_appointment_date: '2026-09-26', next_appointment_time: '10:00:00', next_appointment_status: 'CONFIRMADA', last_consultation_date: '2026-09-01' }] })
+    renderPage({ role: 'ODONTOLOGO', permissions: ['patients.view'] })
+    expect(await screen.findByRole('heading', { name: 'Mis pacientes' })).toBeInTheDocument()
+    expect(await screen.findByText(/10:00/)).toBeInTheDocument()
+    expect(screen.getByText('CONFIRMADA')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Última consulta' })).toBeInTheDocument()
+  })
   beforeEach(() => {
     listPatients.mockReset()
     listPatients.mockResolvedValue({ count: 60, results: patients })
@@ -112,7 +120,7 @@ describe('PatientsPage HU-16/HU-17', () => {
   it('keeps the existing patient-create permission boundary', async () => {
     renderPage({ role: 'ODONTOLOGO', permissions: ['patients.view'] })
 
-    await screen.findByRole('heading', { name: 'Pacientes' })
+    await screen.findByRole('heading', { name: 'Mis pacientes' })
     expect(screen.queryByRole('button', { name: 'Nuevo paciente' })).not.toBeInTheDocument()
   })
 })

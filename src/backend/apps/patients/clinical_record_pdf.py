@@ -19,6 +19,7 @@ from reportlab.platypus import (
 from xml.sax.saxutils import escape
 
 from .models import OdontogramVersion, PatientDocument, TreatmentItem
+from .access import consultations_visible_to, treatments_visible_to, odontograms_visible_to, documents_visible_to
 
 
 NAVY = colors.HexColor("#173B63")
@@ -292,9 +293,12 @@ def _clinical_record_story(patient, styles):
     return story
 
 
-def _consultation_story(patient, styles):
+def _consultation_story(patient, styles, actor=None):
     story = _section_title("Historial de consultas", styles)
-    consultations = patient.consultations.select_related("professional").prefetch_related("amendments").order_by(
+    queryset = patient.consultations.all()
+    if actor is not None:
+        queryset = consultations_visible_to(actor, queryset)
+    consultations = queryset.select_related("professional").prefetch_related("amendments").order_by(
         "date", "time", "created_at", "pk"
     )
     if not consultations.exists():
@@ -360,10 +364,10 @@ def _treatment_item_text(item, styles):
     return content
 
 
-def _treatment_story(patient, styles):
+def _treatment_story(patient, styles, actor=None):
     story = _section_title("Plan y tratamientos longitudinales", styles)
     items = list(
-        TreatmentItem.objects.filter(proposed_in__patient=patient)
+        (treatments_visible_to(actor) if actor is not None else TreatmentItem.objects.all()).filter(proposed_in__patient=patient)
         .select_related("proposed_in", "performed_in")
         .order_by("proposed_in__date", "created_at", "pk")
     )
@@ -408,10 +412,10 @@ def _current_findings(version):
     return findings
 
 
-def _odontogram_story(patient, styles):
+def _odontogram_story(patient, styles, actor=None):
     story = _section_title("Resumen del odontograma actual", styles)
     current = (
-        OdontogramVersion.objects.filter(patient=patient)
+        (odontograms_visible_to(actor) if actor is not None else OdontogramVersion.objects.all()).filter(patient=patient)
         .select_related("consultation")
         .order_by("-version_number")
         .first()
@@ -453,10 +457,10 @@ def _odontogram_story(patient, styles):
     return story
 
 
-def _document_story(patient, styles):
+def _document_story(patient, styles, actor=None):
     story = _section_title("Documentos adjuntos de referencia", styles)
     documents = (
-        PatientDocument.objects.filter(patient=patient)
+        (documents_visible_to(actor) if actor is not None else PatientDocument.objects.all()).filter(patient=patient)
         .select_related("consultation")
         .order_by("document_date", "created_at", "pk")
     )
@@ -500,7 +504,7 @@ def _document_story(patient, styles):
     return story
 
 
-def build_clinical_record_pdf(*, patient, clinic, generated_at, include_documents=False):
+def build_clinical_record_pdf(*, patient, clinic, generated_at, include_documents=False, actor=None):
     styles = _styles()
     logo_reader = _logo_reader(clinic)
     buffer = BytesIO()
@@ -525,11 +529,11 @@ def build_clinical_record_pdf(*, patient, clinic, generated_at, include_document
     ]
     story.extend(_administrative_story(patient, styles))
     story.extend(_clinical_record_story(patient, styles))
-    story.extend(_consultation_story(patient, styles))
-    story.extend(_treatment_story(patient, styles))
-    story.extend(_odontogram_story(patient, styles))
+    story.extend(_consultation_story(patient, styles, actor))
+    story.extend(_treatment_story(patient, styles, actor))
+    story.extend(_odontogram_story(patient, styles, actor))
     if include_documents:
-        story.extend(_document_story(patient, styles))
+        story.extend(_document_story(patient, styles, actor))
     story.extend([
         Spacer(1, 5 * mm),
         HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#D4DAE0")),

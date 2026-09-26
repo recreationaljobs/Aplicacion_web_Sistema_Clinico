@@ -6,8 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.common.pagination import StandardPageNumberPagination
 from apps.users.permissions import HasCapability
-from .models import ClinicalRevision, Consultation, ConsultationAmendment, Patient
+from .models import ClinicalRevision, Consultation, ConsultationAmendment
 from .traceability import record_revision
+from .access import patients_visible_to, consultations_visible_to
 
 
 class ClinicalRevisionSerializer(serializers.ModelSerializer):
@@ -26,11 +27,11 @@ class ClinicalRevisionListView(generics.ListAPIView):
     required_permissions = {"GET": "patients.view"}
 
     def get_queryset(self):
-        patient = get_object_or_404(Patient, pk=self.kwargs["patient_pk"])
+        patient = get_object_or_404(patients_visible_to(self.request.user), pk=self.kwargs["patient_pk"])
         self.request._request.audit_patient_id = patient.pk
         queryset = ClinicalRevision.objects.filter(patient=patient)
         if "consultation_pk" in self.kwargs:
-            consultation = get_object_or_404(Consultation, patient=patient, pk=self.kwargs["consultation_pk"])
+            consultation = get_object_or_404(consultations_visible_to(self.request.user), patient=patient, pk=self.kwargs["consultation_pk"])
             return queryset.filter(consultation=consultation)
         return queryset.filter(consultation__isnull=True)
 
@@ -63,7 +64,7 @@ class ConsultationAmendmentListCreateView(generics.ListCreateAPIView):
     required_permissions = {"GET": "consultations.view", "POST": "consultations.edit"}
 
     def get_consultation(self):
-        return get_object_or_404(Consultation, pk=self.kwargs["consultation_pk"], patient_id=self.kwargs["patient_pk"])
+        return get_object_or_404(consultations_visible_to(self.request.user), pk=self.kwargs["consultation_pk"], patient_id=self.kwargs["patient_pk"])
 
     def get_queryset(self):
         consultation = self.get_consultation()
@@ -72,7 +73,7 @@ class ConsultationAmendmentListCreateView(generics.ListCreateAPIView):
 
     @transaction.atomic
     def perform_create(self, serializer):
-        consultation = get_object_or_404(Consultation.objects.select_for_update(), pk=self.kwargs["consultation_pk"], patient_id=self.kwargs["patient_pk"])
+        consultation = get_object_or_404(consultations_visible_to(self.request.user).select_for_update(of=("self",)), pk=self.kwargs["consultation_pk"], patient_id=self.kwargs["patient_pk"])
         if consultation.status != Consultation.Status.COMPLETED:
             raise AmendmentStateConflict()
         record_revision(patient=consultation.patient, instance=consultation, consultation=consultation, reason="Consulta original previa a adenda")
