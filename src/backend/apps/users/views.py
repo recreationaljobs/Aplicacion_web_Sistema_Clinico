@@ -7,7 +7,7 @@ from rest_framework import status
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
+import resend
 from django.db import transaction
 from django.db.models import F
 from django.db.models.deletion import ProtectedError
@@ -462,46 +462,47 @@ class PasswordResetRequestView(APIView):
             )
 
             try:
-                send_mail(
-                    subject=(
-                        "Restablece tu contraseña "
-                        "de DentalClinic"
-                    ),
-                    message=(
-                        f"Hola "
-                        f"{user.first_name or 'usuario'},"
-                        f"\n\n"
-                        "Usa el siguiente enlace "
-                        "para crear una nueva "
-                        "contraseña. "
-                        "El enlace vence en "
-                        "60 minutos:\n\n"
-                        f"{reset_url}\n\n"
-                        "Si no solicitaste este "
-                        "cambio, ignora este mensaje."
-                    ),
-                    from_email=(
-                        settings.DEFAULT_FROM_EMAIL
-                    ),
-                    recipient_list=[
-                        user.email
-                    ],
+                resend.api_key = settings.RESEND_API_KEY
+
+                resend.Emails.send(
+                    {
+                        "from": settings.RESEND_FROM_EMAIL,
+                        "to": [user.email],
+                        "subject": "Restablece tu contraseña de DentalClinic",
+                        "html": f"""
+                            <h2>Restablece tu contraseña</h2>
+
+                            <p>
+                                Hola {user.first_name or 'usuario'},
+                            </p>
+
+                            <p>
+                                Recibimos una solicitud para restablecer
+                                la contraseña de tu cuenta.
+                            </p>
+
+                            <p>
+                                <a href="{reset_url}">
+                                    Restablecer contraseña
+                                </a>
+                            </p>
+
+                            <p>
+                                Este enlace vence en 60 minutos.
+                            </p>
+
+                            <p>
+                                Si no solicitaste este cambio,
+                                puedes ignorar este mensaje.
+                            </p>
+                        """,
+                    }
                 )
 
-            except (
-                SMTPException,
-                OSError,
-            ) as exc:
-                print(
-                    "SMTP DEBUG >>>",
-                    type(exc).__name__,
-                    repr(exc),
-                    flush=True,
-                )
-
+            except Exception:
                 logging.getLogger(
                     "dentalclinic.mail"
-                ).error(
+                ).exception(
                     "Password reset delivery failed",
                     extra={
                         "request_id": getattr(
@@ -511,7 +512,6 @@ class PasswordResetRequestView(APIView):
                         )
                     },
                 )
-
         return Response(
             {
                 "detail": (
