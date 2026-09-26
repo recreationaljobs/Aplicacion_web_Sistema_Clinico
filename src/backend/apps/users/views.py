@@ -1,7 +1,7 @@
 import mimetypes
 import time
 import logging
-from smtplib import SMTPException
+
 
 from rest_framework import status
 from django.conf import settings
