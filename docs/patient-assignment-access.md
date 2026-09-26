@@ -47,6 +47,8 @@ No se borran ni reescriben snapshots históricos. Si una versión antigua ya cop
 
 ## Verificación
 
+Nota posterior: los fallos de autenticación descritos en esta evidencia histórica se abordan en [HU-01: regresiones de sesión segura](user-stories/HU-01-secure-session-regressions.md), actualizando pruebas al contrato CSRF vigente y recuperando las suites sobrescritas.
+
 Desde `src/backend`:
 
 ```powershell

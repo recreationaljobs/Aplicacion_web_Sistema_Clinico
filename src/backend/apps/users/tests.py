@@ -266,8 +266,11 @@ class SecureSessionApiTests(APITestCase):
 
     def csrf_headers(self):
         response = self.client.get(reverse("users:csrf"))
-        self.assertEqual(response.status_code, 204)
-        token = self.client.cookies["csrftoken"].value
+        self.assertEqual(response.status_code, 200)
+        token = response.data["csrfToken"]
+        self.assertIsInstance(token, str)
+        self.assertTrue(token)
+        self.assertIn("csrftoken", response.cookies)
         return {"HTTP_X_CSRFTOKEN": token}
 
     def login(self):
@@ -293,8 +296,31 @@ class SecureSessionApiTests(APITestCase):
         cookie = accepted.cookies["dentalclinic_refresh"]
         self.assertTrue(cookie["httponly"])
         self.assertEqual(cookie["samesite"], "Lax")
-        self.assertEqual(cookie["path"], "/api/auth/")
+        # Refresh/logout may travel through /api/proxy on the frontend origin.
+        self.assertEqual(cookie["path"], "/")
         self.assertEqual(cookie["max-age"], 28800)
+
+    def test_login_rejects_a_token_that_does_not_match_the_cookie(self):
+        self.csrf_headers()
+        response = self.client.post(
+            reverse("users:login"),
+            {"email": self.user.email, "password": "ContraseñaSegura123!"},
+            format="json",
+            HTTP_X_CSRFTOKEN="a" * 64,
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("dentalclinic_refresh", response.cookies)
+
+    def test_login_rejects_untrusted_origin_even_with_valid_csrf(self):
+        response = self.client.post(
+            reverse("users:login"),
+            {"email": self.user.email, "password": "ContraseñaSegura123!"},
+            format="json",
+            HTTP_ORIGIN="https://untrusted.example.test",
+            **self.csrf_headers(),
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("dentalclinic_refresh", response.cookies)
 
     def test_refresh_uses_cookie_rotates_it_and_rejects_reuse(self):
         login = self.login()
@@ -379,6 +405,7 @@ class SecureSessionApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 204)
         self.assertEqual(response.cookies["dentalclinic_refresh"]["max-age"], 0)
+        self.assertEqual(response.cookies["dentalclinic_refresh"]["path"], "/")
         self.assertEqual(self.client.get(reverse("users:current-user")).status_code, 401)
 
     def test_password_change_clears_the_refresh_cookie(self):
@@ -397,6 +424,7 @@ class SecureSessionApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.cookies["dentalclinic_refresh"]["max-age"], 0)
+        self.assertEqual(response.cookies["dentalclinic_refresh"]["path"], "/")
 
 
 class CurrentUserProfileApiTests(APITestCase):

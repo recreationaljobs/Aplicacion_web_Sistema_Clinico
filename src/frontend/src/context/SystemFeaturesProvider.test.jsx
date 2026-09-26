@@ -1,176 +1,93 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { apiRequest } from '../services/api'
-import { SystemFeaturesContext } from './systemFeaturesValue'
+import { act, cleanup, render, screen } from '@testing-library/react'
+import { afterEach, expect, it, vi } from 'vitest'
+import SystemFeaturesProvider from './SystemFeaturesProvider'
+import { useSystemFeatures } from './systemFeaturesValue'
 
-const DEFAULT_FEATURES = {
-  demo: false,
-  uploads: true,
-  password_reset: true,
+afterEach(() => {
+  cleanup()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
+const response = (data) => ({ ok: true, status: 200, json: async () => data })
+
+function FeatureActions() {
+  const { uploads, password_reset: passwordReset } = useSystemFeatures()
+  return <>
+    <button disabled={!uploads}>Subir documento</button>
+    <button disabled={!passwordReset}>Recuperar contraseña</button>
+  </>
 }
 
-export default function SystemFeaturesProvider({ children }) {
-  const [features, setFeatures] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  const loadFeatures = useCallback(async () => {
-    const controller = new AbortController()
-
-    setLoading(true)
-    setError('')
-
-    try {
-      const data = await apiRequest(
-        '/api/system/features',
-        {
-          signal: controller.signal,
-        },
-      )
-
-      setFeatures({
-        demo: Boolean(data?.demo),
-        uploads: Boolean(data?.uploads),
-        password_reset: Boolean(data?.password_reset),
-      })
-    } catch (requestError) {
-      if (requestError?.name === 'AbortError') {
-        return
-      }
-
-      setFeatures(null)
-      setError(
-        requestError?.message ||
-          'No pudimos conectar con el servidor. Intenta nuevamente.',
-      )
-    } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false)
-      }
-    }
-
-    return () => controller.abort()
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const controller = new AbortController()
-
-    const load = async () => {
-      setLoading(true)
-      setError('')
-
-      try {
-        const data = await apiRequest(
-          '/api/system/features',
-          {
-            signal: controller.signal,
-          },
-        )
-
-        if (!active) {
-          return
-        }
-
-        setFeatures({
-          demo: Boolean(data?.demo),
-          uploads: Boolean(data?.uploads),
-          password_reset: Boolean(data?.password_reset),
-        })
-      } catch (requestError) {
-        if (
-          !active ||
-          requestError?.name === 'AbortError'
-        ) {
-          return
-        }
-
-        setFeatures(null)
-        setError(
-          requestError?.message ||
-            'No pudimos conectar con el servidor. Intenta nuevamente.',
-        )
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
-      }
-    }
-
-    load()
-
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [])
-
-  const contextValue = useMemo(
-    () => ({
-      demo:
-        features?.demo ??
-        DEFAULT_FEATURES.demo,
-      uploads:
-        features?.uploads ??
-        DEFAULT_FEATURES.uploads,
-      passwordReset:
-        features?.password_reset ??
-        DEFAULT_FEATURES.password_reset,
-      rawFeatures: features,
-    }),
-    [features],
-  )
-
-  if (loading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-50 px-6">
-        <div className="text-center">
-          <span
-            aria-hidden="true"
-            className="mx-auto block h-9 w-9 animate-spin rounded-full border-2 border-blue-100 border-t-blue-700"
-          />
-          <p className="mt-4 text-sm font-medium text-slate-500">
-            Cargando configuración…
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !features) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-slate-50 px-6">
-        <div className="w-full max-w-md rounded-2xl border border-red-200 bg-white p-6 text-center shadow-sm">
-          <p
-            role="alert"
-            className="text-sm font-medium text-red-700"
-          >
-            No pudimos conectar con el servidor. Intenta nuevamente.
-          </p>
-
-          <button
-            type="button"
-            onClick={loadFeatures}
-            className="mt-5 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <SystemFeaturesContext.Provider value={contextValue}>
-      {features.demo ? (
-        <div
-          role="note"
-          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-semibold text-amber-800"
-        >
-          Solo datos ficticios. Este entorno es de demostración.
-        </div>
-      ) : null}
-
-      {children}
-    </SystemFeaturesContext.Provider>
-  )
+function renderFeatures() {
+  return render(<SystemFeaturesProvider><FeatureActions /></SystemFeaturesProvider>)
 }
+
+it('shows the synthetic-data notice and disables actions using server features', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({
+    demo: true, uploads: false, password_reset: false,
+  })))
+  renderFeatures()
+
+  expect(await screen.findByRole('note')).toHaveTextContent('Solo datos ficticios')
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Recuperar contraseña' })).toBeDisabled()
+})
+
+it('renders immediately while configuration loads, then applies server restrictions', async () => {
+  let resolve
+  vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise((done) => { resolve = done })))
+  renderFeatures()
+
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeEnabled()
+  expect(screen.queryByRole('note')).not.toBeInTheDocument()
+  await act(async () => resolve(response({ demo: true, uploads: false, password_reset: false })))
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeDisabled()
+})
+
+it('keeps startup available if the configuration server is offline', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Offline')))
+  await act(async () => { renderFeatures() })
+
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Recuperar contraseña' })).toBeEnabled()
+  expect(screen.queryByRole('note')).not.toBeInTheDocument()
+})
+
+it.each([
+  { demo: true, uploads: 'false', password_reset: false },
+  { demo: true },
+  null,
+])('does not apply a malformed feature response: %j', async (data) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(data)))
+  await act(async () => { renderFeatures() })
+
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Recuperar contraseña' })).toBeEnabled()
+  expect(screen.queryByRole('note')).not.toBeInTheDocument()
+})
+
+it('aborts a pending request on unmount', () => {
+  const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
+  vi.stubGlobal('fetch', fetchMock)
+  const { unmount } = renderFeatures()
+  const signal = fetchMock.mock.calls[0][1].signal
+
+  expect(signal.aborted).toBe(false)
+  unmount()
+  expect(signal.aborted).toBe(true)
+})
+
+it('aborts a slow configuration request after ten seconds without blocking children', () => {
+  vi.useFakeTimers()
+  const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}))
+  vi.stubGlobal('fetch', fetchMock)
+  renderFeatures()
+  const signal = fetchMock.mock.calls[0][1].signal
+
+  act(() => vi.advanceTimersByTime(9999))
+  expect(signal.aborted).toBe(false)
+  act(() => vi.advanceTimersByTime(1))
+  expect(signal.aborted).toBe(true)
+  expect(screen.getByRole('button', { name: 'Subir documento' })).toBeEnabled()
+})

@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import UTC, date, datetime, time
 from threading import Barrier, Lock, Thread
 from unittest import skipUnless
 from unittest.mock import patch
@@ -33,6 +33,10 @@ class PostgresConsultationCompletionTests(TransactionTestCase):
 
     def setUp(self):
         super().setUp()
+        # The fixture starts at 09:00 Managua; exercise the real time guard.
+        clock = patch("django.utils.timezone.now", return_value=datetime(2027, 1, 11, 15, 0, tzinfo=UTC))
+        clock.start()
+        self.addCleanup(clock.stop)
         ClinicProfile.objects.get_or_create(pk=1)
         self.admin = User.objects.create_user(
             email="postgres-completion-admin@example.test",

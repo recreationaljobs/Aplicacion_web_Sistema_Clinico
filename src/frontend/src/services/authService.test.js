@@ -7,7 +7,11 @@ describe('authService.logout', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('revokes the cookie refresh without sending it in the request body', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ csrfToken: 'csrf-json' }),
+    }).mockResolvedValueOnce({
       ok: true,
       status: 204,
       json: () => Promise.reject(new SyntaxError('No content')),
@@ -23,7 +27,10 @@ describe('authService.logout', () => {
         method: 'POST',
         body: JSON.stringify({}),
         credentials: 'include',
-        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer access-token',
+          'X-CSRFToken': 'csrf-json',
+        }),
       }),
     )
   })

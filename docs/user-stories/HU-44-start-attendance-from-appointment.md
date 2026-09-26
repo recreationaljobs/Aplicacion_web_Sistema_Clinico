@@ -4,6 +4,8 @@
 
 **Actualización 25/09/2026:** aislamiento por odontólogo y ventana temporal implementados sin migraciones nuevas. El [contrato, análisis y verificación actuales](../patient-assignment-access.md) detallan el cambio y los fallos previos de la suite general. La evidencia histórica que sigue corresponde al cierre inicial.
 
+**Seguimiento de CI:** la suite completa PostgreSQL también valida las carreras de cierre y tratamiento con el reloj de la fixture situado dentro de la cita. Se conserva el control temporal real; véase la [evidencia de recuperación de las suites](HU-01-secure-session-regressions.md).
+
 ## Criterio de aceptación
 
 Desde una cita programada o confirmada, un profesional autorizado puede iniciar

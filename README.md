@@ -92,4 +92,6 @@ HU-01, HU-02, HU-03, HU-04, HU-05, HU-06, HU-07, HU-08, HU-09, HU-10, HU-11, HU-
 
 HU-19 y HU-44 se amplían con aislamiento por odontólogo, “Mis pacientes” basado en citas y validación del intervalo de atención en servidor, sin migraciones. La evidencia y las limitaciones se detallan en [pacientes asignados](docs/patient-assignment-access.md).
 
+HU-01: las [regresiones de sesión segura](docs/user-stories/HU-01-secure-session-regressions.md) verifican el contrato CSRF en JSON y recuperan las suites frontend sobrescritas, sin alterar la autenticación de producción.
+
 La preparación actual añade trazabilidad del resumen y consulta, adendas, versión de citas, corrección de llegada y controles operativos. Los resultados de una versión histórica no certifican el despliegue definitivo: las conexiones reales, restauración del proveedor, TLS y cookies se verifican durante tu despliegue.
