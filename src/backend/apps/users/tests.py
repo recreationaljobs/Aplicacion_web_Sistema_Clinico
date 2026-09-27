@@ -665,7 +665,20 @@ class PasswordResetApiTests(APITestCase):
             "confirm_password": password,
         }
 
-    def test_registered_email_receives_a_time_limited_reset_link(self):
+    @override_settings(
+        RESEND_API_KEY="test-api-key",
+        RESEND_FROM_EMAIL="DentalClinic <test@example.com>",
+        FRONTEND_URL="https://frontend.test",
+    )
+    @patch("apps.users.views.resend.Emails.send")
+    def test_registered_email_receives_a_time_limited_reset_link(
+        self,
+        mock_send,
+    ):
+        mock_send.return_value = {
+            "id": "test-email-id"
+        }
+
         response = self.client.post(
             reverse("users:password-reset"),
             {"email": " ODONTOLOGO@dentalclinic.com "},
@@ -673,10 +686,34 @@ class PasswordResetApiTests(APITestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["detail"], self.generic_message)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, [self.user.email])
-        self.assertIn("/restablecer-contrasena/", mail.outbox[0].body)
+        self.assertEqual(
+            response.data["detail"],
+            self.generic_message,
+        )
+
+        mock_send.assert_called_once()
+
+        payload = mock_send.call_args.args[0]
+
+        self.assertEqual(
+            payload["to"],
+            [self.user.email],
+        )
+
+        self.assertEqual(
+            payload["from"],
+            "DentalClinic <test@example.com>",
+        )
+
+        self.assertEqual(
+            payload["subject"],
+            "Restablece tu contraseña de DentalClinic",
+        )
+
+        self.assertIn(
+            "https://frontend.test/restablecer-contrasena/",
+            payload["html"],
+        )
 
     def test_unknown_email_returns_the_same_response_without_sending_mail(self):
         response = self.client.post(

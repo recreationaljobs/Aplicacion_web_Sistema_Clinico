@@ -1,5 +1,5 @@
-from rest_framework.exceptions import AuthenticationFailed
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed # pyright: ignore[reportMissingImports]
+from rest_framework_simplejwt.authentication import JWTAuthentication # pyright: ignore[reportMissingImports]
 
 
 class VersionedJWTAuthentication(JWTAuthentication):
