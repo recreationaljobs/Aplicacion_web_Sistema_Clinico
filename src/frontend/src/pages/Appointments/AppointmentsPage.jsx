@@ -18,6 +18,12 @@ import AppointmentFormPanel from './AppointmentFormPanel'
 import AppointmentMonthView from './AppointmentMonthView'
 import AppointmentTimeline from './AppointmentTimeline'
 import AppointmentWeekView from './AppointmentWeekView'
+
+import {
+  showSuccess,
+  showError,
+  showConfirm,
+} from '../../utils/alerts'
 import {
   calendarRange,
   calendarTitle,
@@ -181,25 +187,81 @@ export default function AppointmentsPage() {
     setFormOpen(true)
   }
 
-  const saveAppointment = async (values) => {
-    const saved = formAppointment
-      ? await updateAppointment(accessToken, formAppointment.id, {
-        ...values,
-        ...(formAppointment.version ? { expected_version: formAppointment.version } : {}),
-      })
-      : await createAppointment(accessToken, values)
+ const saveAppointment = async (values) => {
+  const isEditing = Boolean(formAppointment)
+
+  try {
+    const saved = isEditing
+      ? await updateAppointment(
+          accessToken,
+          formAppointment.id,
+          {
+            ...values,
+            ...(formAppointment.version
+              ? {
+                  expected_version:
+                    formAppointment.version,
+                }
+              : {}),
+          },
+        )
+      : await createAppointment(
+          accessToken,
+          values,
+        )
+
     setSelectedDate(saved.date)
+
     setAppointments((current) => {
-      const remaining = current.filter((item) => item.id !== saved.id)
-      return dateBelongsToView(saved.date, calendarView, selectedDate)
-        ? [...remaining, saved].sort((a, b) => a.start_time.localeCompare(b.start_time))
+      const remaining =
+        current.filter(
+          (item) =>
+            item.id !== saved.id,
+        )
+
+      return dateBelongsToView(
+        saved.date,
+        calendarView,
+        selectedDate,
+      )
+        ? [
+            ...remaining,
+            saved,
+          ].sort(
+            (a, b) =>
+              a.start_time.localeCompare(
+                b.start_time,
+              ),
+          )
         : remaining
     })
+
     setFormOpen(false)
     setFormAppointment(undefined)
     setFormPrefill(null)
-    setToast(formAppointment ? 'Cita actualizada.' : 'Cita programada.')
+
+    await showSuccess(
+      isEditing
+        ? 'Cita actualizada con éxito'
+        : 'Cita programada con éxito',
+      isEditing
+        ? 'Los cambios de la cita fueron guardados correctamente.'
+        : 'La nueva cita fue registrada correctamente.',
+    )
+
+    return saved
+  } catch (requestError) {
+    await showError(
+      isEditing
+        ? 'No se pudo actualizar la cita'
+        : 'No se pudo programar la cita',
+      requestError?.message ||
+        'Ocurrió un error al guardar la cita.',
+    )
+
+    throw requestError
   }
+}
 
   const changeStatus = async (status, extra = {}) => {
     const saved = await updateAppointment(accessToken, selectedAppointment.id, {
@@ -211,7 +273,98 @@ export default function AppointmentsPage() {
     const messages = {
       CONFIRMADA: 'Cita confirmada.', COMPLETADA: 'Cita completada.', CANCELADA: 'Cita cancelada.', NO_ASISTIO: 'Inasistencia registrada.',
     }
-    setToast(messages[status])
+    const changeStatus = async (status, extra = {}) => {
+  try {
+    if (status === 'CANCELADA') {
+      const result = await showConfirm({
+        title: '¿Cancelar esta cita?',
+        text: 'La cita permanecerá registrada en el historial como cancelada.',
+        confirmText: 'Sí, cancelar',
+        cancelText: 'Volver',
+        icon: 'warning',
+      })
+
+      if (!result.isConfirmed) {
+        return null
+      }
+    }
+
+    if (status === 'CONFIRMADA') {
+      const result = await showConfirm({
+        title: '¿Confirmar esta cita?',
+        text: 'Se marcará la cita como confirmada.',
+        confirmText: 'Confirmar cita',
+        cancelText: 'Volver',
+        icon: 'question',
+      })
+
+      if (!result.isConfirmed) {
+        return null
+      }
+    }
+
+    const saved = await updateAppointment(
+      accessToken,
+      selectedAppointment.id,
+      {
+        status,
+        ...extra,
+        ...(selectedAppointment.version
+          ? {
+              expected_version:
+                selectedAppointment.version,
+            }
+          : {}),
+      },
+    )
+
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === saved.id ? saved : item,
+      ),
+    )
+
+    setSelectedAppointment(saved)
+
+    const messages = {
+      CONFIRMADA: {
+        title: 'Cita confirmada',
+        text: 'La cita fue confirmada correctamente.',
+      },
+      COMPLETADA: {
+        title: 'Cita completada',
+        text: 'La atención fue registrada como completada.',
+      },
+      CANCELADA: {
+        title: 'Cita cancelada',
+        text: 'La cita fue cancelada correctamente.',
+      },
+      NO_ASISTIO: {
+        title: 'Inasistencia registrada',
+        text: 'Se registró que el paciente no asistió.',
+      },
+    }
+
+    const message = messages[status]
+
+    if (message) {
+      await showSuccess(
+        message.title,
+        message.text,
+      )
+    }
+
+    return saved
+  } catch (requestError) {
+    await showError(
+      'No se pudo actualizar la cita',
+      requestError?.message ||
+        'Ocurrió un error al actualizar la cita.',
+    )
+
+    throw requestError
+  }
+}
   }
 
   const editSelected = () => {
@@ -222,34 +375,126 @@ export default function AppointmentsPage() {
   }
 
   const startSelectedAttendance = async () => {
-    if (attendanceStartRef.current === selectedAppointment.id) return
-    attendanceStartRef.current = selectedAppointment.id
-    try {
-      const result = await startAppointmentAttendance(accessToken, selectedAppointment.id)
-      setAppointments((current) => current.map((item) => (
-        item.id === result.appointment.id ? result.appointment : item
-      )))
-      navigateTo(`/pacientes/${result.appointment.patient}/consultas/${result.consultation.id}`)
-    } finally {
-      attendanceStartRef.current = null
-    }
+  if (
+    attendanceStartRef.current ===
+    selectedAppointment.id
+  ) {
+    return
   }
 
-  const checkInSelected = async () => {
-    if (checkInRef.current === selectedAppointment.id) return
-    checkInRef.current = selectedAppointment.id
-    try {
-      const result = await checkInAppointment(accessToken, selectedAppointment.id)
-      setAppointments((current) => current.map((item) => (
-        item.id === result.appointment.id ? result.appointment : item
-      )))
-      setSelectedAppointment(result.appointment)
-      setToast(result.changed ? 'Llegada registrada.' : 'La llegada ya estaba registrada.')
-    } finally {
-      checkInRef.current = null
-    }
+  const confirmation = await showConfirm({
+    title: 'Iniciar consulta',
+    text: `¿Deseas iniciar la atención de ${selectedAppointment.patient_name}?`,
+    confirmText: 'Iniciar consulta',
+    cancelText: 'Todavía no',
+    icon: 'question',
+  })
+
+  if (!confirmation.isConfirmed) {
+    return
   }
 
+  attendanceStartRef.current =
+    selectedAppointment.id
+
+  try {
+    const result =
+      await startAppointmentAttendance(
+        accessToken,
+        selectedAppointment.id,
+      )
+
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === result.appointment.id
+          ? result.appointment
+          : item,
+      ),
+    )
+
+    await showSuccess(
+      'Consulta iniciada',
+      'Se abrió correctamente la atención clínica.',
+    )
+
+    navigateTo(
+      `/pacientes/${result.appointment.patient}/consultas/${result.consultation.id}`,
+    )
+  } catch (requestError) {
+    await showError(
+      'No se pudo iniciar la consulta',
+      requestError?.message ||
+        'La consulta no pudo iniciarse.',
+    )
+
+    throw requestError
+  } finally {
+    attendanceStartRef.current = null
+  }
+}
+
+const checkInSelected = async () => {
+  if (
+    checkInRef.current ===
+    selectedAppointment.id
+  ) {
+    return
+  }
+
+  const confirmation = await showConfirm({
+    title: 'Registrar llegada',
+    text: `¿Confirmas que ${selectedAppointment.patient_name} ya se encuentra en la clínica?`,
+    confirmText: 'Registrar llegada',
+    cancelText: 'Cancelar',
+    icon: 'question',
+  })
+
+  if (!confirmation.isConfirmed) {
+    return
+  }
+
+  checkInRef.current =
+    selectedAppointment.id
+
+  try {
+    const result =
+      await checkInAppointment(
+        accessToken,
+        selectedAppointment.id,
+      )
+
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === result.appointment.id
+          ? result.appointment
+          : item,
+      ),
+    )
+
+    setSelectedAppointment(
+      result.appointment,
+    )
+
+    await showSuccess(
+      result.changed
+        ? 'Llegada registrada'
+        : 'Llegada ya registrada',
+      result.changed
+        ? 'El paciente fue marcado como presente.'
+        : 'El paciente ya figuraba como presente.',
+    )
+  } catch (requestError) {
+    await showError(
+      'No se pudo registrar la llegada',
+      requestError?.message ||
+        'Ocurrió un error al registrar la llegada.',
+    )
+
+    throw requestError
+  } finally {
+    checkInRef.current = null
+  }
+}
   const openSelectedPatient = () => {
     navigateTo(`/pacientes/${selectedAppointment.patient}`)
   }
@@ -260,7 +505,10 @@ export default function AppointmentsPage() {
     })
     setAppointments((current) => current.map((item) => item.id === saved.id ? saved : item))
     setSelectedAppointment(saved)
-    setToast('Llegada corregida.')
+    await showSuccess(
+      'Llegada corregida',
+      'La corrección fue guardada correctamente.',
+    )
   }
 
   const continueSelectedAttendance = () => {

@@ -213,9 +213,41 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         if self.context.get("quick_create"):
-            self.fields["birth_place"].required = False
-            self.fields["gender"].required = False
+            optional_fields = (
+                "second_last_name",
+                "birth_place",
+                "origin",
+                "religion",
+                "education",
+                "profession",
+                "address",
+                "father_name",
+                "mother_name",
+                "information_source",
+                "information_reliability",
+                "identification_type",
+                "identification_number",
+                "phone",
+                "email",
+                "emergency_contact_name",
+                "emergency_relationship",
+                "emergency_phone",
+                "guardian_name",
+                "guardian_relationship",
+                "guardian_phone",
+                "gender",
+                "date_of_birth",
+            )
+
+            for field_name in optional_fields:
+                field = self.fields.get(field_name)
+
+                if field is not None:
+                    field.required = False
+
+            self.fields["date_of_birth"].allow_null = True
 
     def validate_date_of_birth(self, value):
         if value > date.today():

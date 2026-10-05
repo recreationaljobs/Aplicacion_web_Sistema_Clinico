@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from urllib import request
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
@@ -66,10 +67,26 @@ class AppointmentSerializer(VersionedSerializer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request:
-            self.fields["patient"].queryset = patients_visible_to(request.user)
 
+        request = self.context.get("request")
+
+        if not request:
+            return
+
+        is_dentist_creating_appointment = (
+            request.user.role == User.Role.ODONTOLOGO
+            and request.method == "POST"
+            and self.instance is None
+        )
+
+        if is_dentist_creating_appointment:
+            self.fields["patient"].queryset = Patient.objects.filter(
+                is_active=True
+            )
+        else:
+            self.fields["patient"].queryset = patients_visible_to(
+                request.user
+            )
     def get_attendance(self, appointment):
         if not hasattr(self, "_attendance_clock"):
             self._attendance_clock = (timezone.now(), ClinicProfile.load().timezone)
@@ -186,6 +203,17 @@ class AppointmentSerializer(VersionedSerializer):
 
         patient = attrs.get("patient", instance.patient if instance else None)
         dentist = attrs.get("dentist", instance.dentist if instance else None)
+
+        request = self.context.get("request")
+
+        if (
+            request
+            and request.user.role == User.Role.ODONTOLOGO
+            and dentist != request.user
+        ):
+            raise serializers.ValidationError({
+                "dentist": "El odontólogo solo puede gestionar citas asignadas a su propia cuenta."
+            })
         appointment_date = attrs.get("date", instance.date if instance else None)
         start_time = attrs.get("start_time", instance.start_time if instance else None)
         duration = attrs.get("duration_minutes", instance.duration_minutes if instance else None)

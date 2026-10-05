@@ -23,7 +23,10 @@ class Patient(VersionedModel):
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=100)
     second_last_name = models.CharField(max_length=100, blank=True)
-    birth_place = models.CharField(max_length=150)
+    birth_place = models.CharField(
+    max_length=150,
+    blank=True,
+)
     origin = models.CharField(max_length=150, blank=True)
     religion = models.CharField(max_length=100, blank=True)
     education = models.CharField(max_length=150, blank=True)
@@ -48,8 +51,15 @@ class Patient(VersionedModel):
     guardian_name = models.CharField(max_length=200, null=True, blank=True)
     guardian_relationship = models.CharField(max_length=80, null=True, blank=True)
     guardian_phone = models.CharField(max_length=32, null=True, blank=True)
-    gender = models.CharField(max_length=16, choices=Gender.choices)
-    date_of_birth = models.DateField()
+    gender = models.CharField(
+    max_length=16,
+    choices=Gender.choices,
+    blank=True,
+)
+    date_of_birth = models.DateField(
+    null=True,
+    blank=True,
+)
     is_active = models.BooleanField(default=True)
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

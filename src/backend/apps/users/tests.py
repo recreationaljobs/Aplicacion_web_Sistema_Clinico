@@ -9,7 +9,8 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.cache import cache
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import TestCase, override_settings
+from .serializers import PasswordResetConfirmSerializer
 from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
@@ -643,6 +644,125 @@ class CurrentUserProfileApiTests(APITestCase):
         self.assertEqual(created.phone, "+505 8666 3333")
         self.assertTrue(created.avatar)
 
+
+class PasswordResetConfirmSerializerUnitTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="unit-reset@dentalclinic.com",
+            password="ContraseñaAnterior123!",
+            role=User.Role.ODONTOLOGO,
+            first_name="Lucía",
+        )
+
+    def valid_payload(self, password="NuevaContraseña123!"):
+        return {
+            "uid": urlsafe_base64_encode(
+                force_bytes(self.user.pk)
+            ),
+            "token": default_token_generator.make_token(
+                self.user
+            ),
+            "new_password": password,
+            "confirm_password": password,
+        }
+
+    def serializer(self, data):
+        return PasswordResetConfirmSerializer(
+            data=data,
+            context={
+                "user_model": User,
+            },
+        )
+
+    def test_matching_passwords_are_valid(self):
+        serializer = self.serializer(
+            self.valid_payload()
+        )
+
+        self.assertTrue(
+            serializer.is_valid(),
+            serializer.errors,
+        )
+
+    def test_mismatched_passwords_are_rejected(self):
+        payload = self.valid_payload()
+        payload["confirm_password"] = (
+            "OtraContraseña123!"
+        )
+
+        serializer = self.serializer(payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "confirm_password",
+            serializer.errors,
+        )
+
+    def test_weak_password_is_rejected(self):
+        serializer = self.serializer(
+            self.valid_payload(
+                password="123"
+            )
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "new_password",
+            serializer.errors,
+        )
+
+    def test_invalid_uid_is_rejected(self):
+        payload = self.valid_payload()
+        payload["uid"] = "uid-invalido"
+
+        serializer = self.serializer(payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "token",
+            serializer.errors,
+        )
+
+    def test_invalid_token_is_rejected(self):
+        payload = self.valid_payload()
+        payload["token"] = "token-invalido"
+
+        serializer = self.serializer(payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn(
+            "token",
+            serializer.errors,
+        )
+
+    def test_save_changes_password_and_increments_token_version(self):
+        previous_token_version = (
+            self.user.token_version
+        )
+
+        serializer = self.serializer(
+            self.valid_payload()
+        )
+
+        self.assertTrue(
+            serializer.is_valid(),
+            serializer.errors,
+        )
+
+        updated_user = serializer.save()
+
+        updated_user.refresh_from_db()
+
+        self.assertTrue(
+            updated_user.check_password(
+                "NuevaContraseña123!"
+            )
+        )
+
+        self.assertEqual(
+            updated_user.token_version,
+            previous_token_version + 1,
+        )
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class PasswordResetApiTests(APITestCase):

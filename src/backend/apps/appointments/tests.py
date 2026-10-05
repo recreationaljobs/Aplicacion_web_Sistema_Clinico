@@ -54,6 +54,7 @@ class AppointmentRangeTests(SimpleTestCase):
         self.assertEqual(scheduled_range.upper, datetime(2026, 8, 12, 10, 0, tzinfo=UTC))
 
 
+
 class AppointmentApiTests(APITestCase):
     list_url = "/api/appointments/"
 
@@ -841,3 +842,95 @@ class AppointmentApiTests(APITestCase):
         self.assertIsNone(appointment.attendance_started_at)
         self.assertEqual(Consultation.objects.count(), 0)
         self.assertEqual(OdontogramVersion.objects.count(), 0)
+
+    
+    def test_dentist_can_create_first_appointment_with_unassigned_active_patient(self):
+        preset, _ = RolePermissionPreset.objects.get_or_create(
+            role=User.Role.ODONTOLOGO,
+            defaults={
+                "permissions": [
+                    "appointments.view",
+                    "appointments.create",
+                    "appointments.edit",
+                ]
+            },
+        )
+
+        preset.permissions = [
+            "appointments.view",
+            "appointments.create",
+            "appointments.edit",
+        ]
+        preset.save(update_fields=["permissions"])
+
+        new_patient = self.create_patient(
+            "001-040490-0004D",
+            "Diana",
+        )
+
+        self.assertFalse(
+            Appointment.objects.filter(
+                patient=new_patient,
+                dentist=self.dentist,
+            ).exists()
+        )
+
+        self.client.force_authenticate(self.dentist)
+
+        response = self.client.post(
+            self.list_url,
+            self.payload(
+                patient=new_patient.pk,
+                dentist=self.dentist.pk,
+                start_time="11:00",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["patient"], new_patient.pk)
+        self.assertEqual(response.data["dentist"], self.dentist.pk)
+
+    def test_dentist_cannot_create_appointment_for_another_dentist(self):
+        preset, _ = RolePermissionPreset.objects.get_or_create(
+            role=User.Role.ODONTOLOGO,
+            defaults={
+                "permissions": [
+                    "appointments.view",
+                    "appointments.create",
+                    "appointments.edit",
+                ]
+            },
+        )
+
+        preset.permissions = [
+            "appointments.view",
+            "appointments.create",
+            "appointments.edit",
+        ]
+        preset.save(update_fields=["permissions"])
+
+        self.client.force_authenticate(self.dentist)
+
+        response = self.client.post(
+            self.list_url,
+            self.payload(
+                dentist=self.other_dentist.pk,
+                start_time="11:00",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+
+        self.assertFalse(
+            Appointment.objects.filter(
+                dentist=self.other_dentist,
+                patient=self.patient,
+                date=date(2026, 8, 12),
+                start_time=time(11, 0),
+            ).exists()
+        )
+
+
+
