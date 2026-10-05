@@ -1,4 +1,5 @@
 from datetime import date
+import logging
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
@@ -363,7 +364,21 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                 record = ClinicalRecord.objects.create(patient=patient, **record_data)
                 record_revision(patient=patient, instance=record, author=patient.registered_by, reason="Creación del expediente")
                 return patient
-        except IntegrityError:
+        except IntegrityError as exc:
+        
+            logger = logging.getLogger("dentalclinic.request")
+
+            logger.error(
+                "patient.create.integrity_error",
+                extra={
+                    "integrity_error": str(exc),
+                    "integrity_error_repr": repr(exc),
+                    "identification_type": identification_type,
+                    "identification_number": identification_number,
+                },
+                exc_info=True,
+            )
+
             if self._identity_conflict_exists(
                 identification_type,
                 identification_number,
@@ -375,6 +390,7 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                         ]
                     }
                 )
+
             raise
 
     def update(self, instance, validated_data):
