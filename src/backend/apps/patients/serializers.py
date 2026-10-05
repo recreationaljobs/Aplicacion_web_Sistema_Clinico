@@ -216,6 +216,8 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
         if self.context.get("quick_create"):
             optional_fields = (
+                "first_name",
+                "last_name",
                 "second_last_name",
                 "birth_place",
                 "origin",
@@ -250,10 +252,12 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
             self.fields["date_of_birth"].allow_null = True
 
     def validate_date_of_birth(self, value):
-        if value > date.today():
-            raise serializers.ValidationError("La fecha de nacimiento no puede ser futura.")
-        return value
+        if value is not None and value > date.today():
+            raise serializers.ValidationError(
+                "La fecha de nacimiento no puede estar en el futuro."
+            )
 
+        return value
     def validate_email(self, value):
         return value.strip().lower()
 
@@ -336,12 +340,6 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                 value = attrs[field]
                 attrs[field] = value.strip() if value and value.strip() else None
 
-        if self.context.get("quick_create"):
-            phone = attrs.get("phone", "")
-            if not str(phone or "").strip() and not identification_number:
-                raise serializers.ValidationError(
-                    "Indica un teléfono o una identificación para registrar al paciente."
-                )
 
         if self._identity_conflict_exists(identification_type, identification_number):
             raise serializers.ValidationError({

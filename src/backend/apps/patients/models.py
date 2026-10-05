@@ -20,8 +20,8 @@ class Patient(VersionedModel):
         OTRO = "OTRO", "Otro"
 
     code = models.CharField(max_length=16, unique=True, null=True, blank=True, editable=False)
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=150,blank=True)
+    last_name = models.CharField(max_length=100,blank=True)
     second_last_name = models.CharField(max_length=100, blank=True)
     birth_place = models.CharField(
     max_length=150,
