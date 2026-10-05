@@ -365,17 +365,16 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                 record_revision(patient=patient, instance=record, author=patient.registered_by, reason="Creación del expediente")
                 return patient
         except IntegrityError as exc:
-        
+            import logging
+
             logger = logging.getLogger("dentalclinic.request")
 
             logger.error(
-                "patient.create.integrity_error",
-                extra={
-                    "integrity_error": str(exc),
-                    "integrity_error_repr": repr(exc),
-                    "identification_type": identification_type,
-                    "identification_number": identification_number,
-                },
+                "patient.create.integrity_error | error=%s | repr=%r | identification_type=%r | identification_number=%r",
+                str(exc),
+                exc,
+                identification_type,
+                identification_number,
                 exc_info=True,
             )
 
