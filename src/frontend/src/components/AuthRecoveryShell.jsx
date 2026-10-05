@@ -1,5 +1,7 @@
 import image from '../assets/imagen_login.webp'
-import logo from '../assets/logo_login.svg'
+//import logo from '../assets/logo_login.svg'
+// AuthRecoveryShell.jsx
+import logo from '../assets/vite.jpeg'
 
 const steps = ['Solicitud', 'Correo', 'Nueva contraseña']
 

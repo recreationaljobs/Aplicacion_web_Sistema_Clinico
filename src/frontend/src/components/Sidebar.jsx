@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
 import MenuIcon from './MenuIcon'
-import logo from '../assets/logo_login.svg'
+//import logo from '../assets/logo_login.svg'
+// Sidebar.jsx
+import logo from '../assets/vite.jpeg'
 import { useAuth } from '../context/authContextValue'
 import { useClinic } from '../context/clinicContextValue'
 import { hasAnyCapability, hasCapability } from '../utils/capabilities'
