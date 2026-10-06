@@ -13,9 +13,10 @@ import {
   useParams,
 } from 'react-router-dom'
 
+import Swal from 'sweetalert2'
+
 import ClinicalAlertsBanner from '../../components/ClinicalAlertsBanner'
 import PatientDuplicateDialog from '../../components/PatientDuplicateDialog'
-
 import ClinicalHistoryPanel from './ClinicalHistoryPanel'
 
 import {
@@ -52,8 +53,8 @@ import {
 } from './patientRecordSchema'
 
 import LongitudinalTreatmentPlan from './LongitudinalTreatmentPlan'
-
 import useLongitudinalTreatmentPlan from './useLongitudinalTreatmentPlan'
+
 
 const genderLabels = {
   FEMENINO: 'Femenino',
@@ -61,22 +62,40 @@ const genderLabels = {
   OTRO: 'Otro',
 }
 
+
 const inputClass =
-  '-mx-2 w-[calc(100%+1rem)] rounded-md border border-transparent bg-transparent px-2 py-1.5 text-sm font-medium text-slate-700 outline-none transition placeholder:italic placeholder:text-slate-400 hover:border-slate-200 hover:bg-slate-50 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100'
+  'mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+
+
+const textareaClass =
+  'mt-2 min-h-[110px] w-full resize-y rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium leading-6 text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+
+
+const selectClass =
+  'mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-medium text-slate-800 shadow-sm outline-none transition hover:border-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500'
+
 
 function makeEmptyForm() {
   return {
     ...Object.fromEntries(
-      [...patientFields, ...recordFields].map(
-        (field) => [field, ''],
+      [
+        ...patientFields,
+        ...recordFields,
+      ].map(
+        (field) => [
+          field,
+          '',
+        ],
       ),
     ),
+
     identification_type: '',
     is_active: true,
     infectious_diseases: {},
     hereditary_diseases: {},
   }
 }
+
 
 const infectiousLabels = {
   hepatitis: 'Hepatitis',
@@ -99,58 +118,114 @@ const infectiousLabels = {
   ringworm: 'Tiña',
 }
 
+
 const hereditaryLabels = {
-  diabetes_mellitus: 'Diabetes mellitus',
-  hypertension: 'Hipertensión arterial',
-  rheumatic_disease: 'Enfermedad reumática',
-  kidney_diseases: 'Enfermedades renales',
-  eye_diseases: 'Enfermedades oculares',
-  heart_diseases: 'Enfermedades cardíacas',
-  liver_disease: 'Enfermedad hepática',
-  muscle_diseases: 'Enfermedades musculares',
+  diabetes_mellitus:
+    'Diabetes mellitus',
+
+  hypertension:
+    'Hipertensión arterial',
+
+  rheumatic_disease:
+    'Enfermedad reumática',
+
+  kidney_diseases:
+    'Enfermedades renales',
+
+  eye_diseases:
+    'Enfermedades oculares',
+
+  heart_diseases:
+    'Enfermedades cardíacas',
+
+  liver_disease:
+    'Enfermedad hepática',
+
+  muscle_diseases:
+    'Enfermedades musculares',
+
   congenital_malformations:
     'Malformaciones congénitas',
-  mental_disorders: 'Desórdenes mentales',
+
+  mental_disorders:
+    'Desórdenes mentales',
+
   degenerative_cns_diseases:
     'Enfermedades degenerativas del sistema nervioso central',
+
   growth_anomalies:
     'Anomalías del crecimiento y desarrollo',
+
   inborn_metabolic_errors:
     'Errores innatos del metabolismo',
 }
 
-function formFromPatient(patient) {
-  const values = makeEmptyForm()
+
+function formFromPatient(
+  patient,
+) {
+  const values =
+    makeEmptyForm()
 
   const record =
-    patient.clinical_record || {}
+    patient.clinical_record ||
+    {}
 
-  patientFields.forEach((field) => {
-    const value = patient[field]
+  patientFields.forEach(
+    (field) => {
+      const value =
+        patient[field]
 
-    if (field === 'is_active') {
-      values[field] = Boolean(value)
-    } else if (value !== undefined) {
+      if (
+        field ===
+        'is_active'
+      ) {
+        values[field] =
+          Boolean(value)
+      } else if (
+        value !==
+        undefined
+      ) {
+        values[field] =
+          value === null
+            ? ''
+            : String(
+                value,
+              )
+      }
+    },
+  )
+
+  recordFields.forEach(
+    (field) => {
+      const value =
+        record[field]
+
       values[field] =
-        value === null
-          ? ''
-          : String(value)
-    }
-  })
-
-  recordFields.forEach((field) => {
-    const value = record[field]
-
-    values[field] = Array.isArray(value)
-      ? value.join('\n')
-      : value === null ||
-          value === undefined
-        ? ''
-        : String(value)
-  })
+        Array.isArray(
+          value,
+        )
+          ? value.join(
+              '\n',
+            )
+          : value ===
+                null ||
+              value ===
+                undefined
+            ? ''
+            : String(
+                value,
+              )
+    },
+  )
 
   values.infectious_diseases =
-    record.infectious_diseases || {}
+    record.infectious_diseases ||
+    {}
+
+  values.hereditary_diseases =
+    record.hereditary_diseases ||
+    {}
 
   if (
     values.identification_type ===
@@ -162,38 +237,51 @@ function formFromPatient(patient) {
       )
   }
 
-  values.hereditary_diseases =
-    record.hereditary_diseases || {}
-
   return values
 }
 
-function lines(value) {
-  return String(value || '')
+
+function lines(
+  value,
+) {
+  return String(
+    value || '',
+  )
     .split('\n')
-    .map((item) => item.trim())
+    .map(
+      (item) =>
+        item.trim(),
+    )
     .filter(Boolean)
 }
 
-function payloadFromForm(form) {
+
+function payloadFromForm(
+  form,
+) {
   const payload =
     Object.fromEntries(
-      patientFields.map((field) => [
-        field,
-        form[field],
-      ]),
+      patientFields.map(
+        (field) => [
+          field,
+          form[field],
+        ],
+      ),
     )
 
   payload.date_of_birth =
-    form.date_of_birth || null
+    form.date_of_birth ||
+    null
 
   const identificationNumber =
     String(
-      form.identification_number || '',
+      form.identification_number ||
+        '',
     ).trim()
 
   payload.identification_number =
-    identificationNumber || null
+    identificationNumber ||
+    null
 
   payload.identification_type =
     identificationNumber
@@ -202,22 +290,28 @@ function payloadFromForm(form) {
 
   payload.clinical_record =
     Object.fromEntries(
-      recordFields.map((field) => {
-        if (
-          field === 'radiographic_exams' ||
-          field === 'clinical_photographs'
-        ) {
+      recordFields.map(
+        (field) => {
+          if (
+            field ===
+              'radiographic_exams' ||
+            field ===
+              'clinical_photographs'
+          ) {
+            return [
+              field,
+              lines(
+                form[field],
+              ),
+            ]
+          }
+
           return [
             field,
-            lines(form[field]),
+            form[field],
           ]
-        }
-
-        return [
-          field,
-          form[field],
-        ]
-      }),
+        },
+      ),
     )
 
   payload.clinical_record.infectious_diseases =
@@ -229,16 +323,21 @@ function payloadFromForm(form) {
   return payload
 }
 
-function ageFromBirthDate(value) {
+
+function ageFromBirthDate(
+  value,
+) {
   if (!value) {
     return ''
   }
 
-  const birthDate = new Date(
-    `${value}T00:00:00`,
-  )
+  const birthDate =
+    new Date(
+      `${value}T00:00:00`,
+    )
 
-  const today = new Date()
+  const today =
+    new Date()
 
   let age =
     today.getFullYear() -
@@ -262,6 +361,7 @@ function ageFromBirthDate(value) {
     : ''
 }
 
+
 function RecordValue({
   label,
   value,
@@ -282,8 +382,8 @@ function RecordValue({
     field
   ) {
     return (
-      <label className="grid content-start gap-1 text-slate-700">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      <label className="grid content-start">
+        <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
           {label}
 
           {required ? (
@@ -294,67 +394,116 @@ function RecordValue({
           ) : null}
         </span>
 
-        {type === 'textarea' ? (
+        {type ===
+        'textarea' ? (
           <textarea
-            aria-label={label}
+            aria-label={
+              ariaLabel ||
+              label
+            }
             name={field}
-            value={form[field] ?? ''}
-            onChange={onChange}
-            rows="2"
-            maxLength={maxLength}
-            placeholder="Sin información registrada"
-            className={`${inputClass} resize-none focus:resize-y`}
+            value={
+              form[field] ??
+              ''
+            }
+            onChange={
+              onChange
+            }
+            rows={4}
+            maxLength={
+              maxLength
+            }
+            placeholder={
+              placeholder ||
+              'Escribe la información correspondiente'
+            }
+            className={
+              textareaClass
+            }
           />
         ) : null}
 
-        {type === 'select' ? (
+        {type ===
+        'select' ? (
           <select
             aria-label={
-              ariaLabel || label
+              ariaLabel ||
+              label
             }
             name={field}
-            value={form[field] ?? ''}
-            onChange={onChange}
-            required={required}
-            className={inputClass}
+            value={
+              form[field] ??
+              ''
+            }
+            onChange={
+              onChange
+            }
+            required={
+              required
+            }
+            className={
+              selectClass
+            }
           >
             <option value="">
-              Sin información registrada
+              Seleccionar
             </option>
 
             {options.map(
               ({
-                value: optionValue,
-                label: optionLabel,
+                value:
+                  optionValue,
+
+                label:
+                  optionLabel,
               }) => (
                 <option
-                  key={optionValue}
-                  value={optionValue}
+                  key={
+                    optionValue
+                  }
+                  value={
+                    optionValue
+                  }
                 >
-                  {optionLabel}
+                  {
+                    optionLabel
+                  }
                 </option>
               ),
             )}
           </select>
         ) : null}
 
-        {type !== 'textarea' &&
-        type !== 'select' ? (
+        {type !==
+          'textarea' &&
+        type !==
+          'select' ? (
           <input
             aria-label={
-              ariaLabel || label
+              ariaLabel ||
+              label
             }
             name={field}
-            value={form[field] ?? ''}
-            onChange={onChange}
+            value={
+              form[field] ??
+              ''
+            }
+            onChange={
+              onChange
+            }
             type={type}
             step={
-              type === 'number'
+              type ===
+              'number'
                 ? 'any'
                 : undefined
             }
-            required={required}
-            pattern={pattern}
+            required={
+              required
+            }
+            pattern={
+              pattern
+            }
             title={
               pattern
                 ? 'Formato: 281-090403-1006K'
@@ -363,13 +512,17 @@ function RecordValue({
             placeholder={
               placeholder ||
               (
-                type === 'date' ||
-                type === 'time'
+                type ===
+                  'date' ||
+                type ===
+                  'time'
                   ? undefined
-                  : 'Sin información registrada'
+                  : 'Escribe aquí'
               )
             }
-            className={inputClass}
+            className={
+              inputClass
+            }
           />
         ) : null}
       </label>
@@ -379,22 +532,23 @@ function RecordValue({
   const display =
     value === '' ||
     value === null ||
-    value === undefined
+    value ===
+      undefined
       ? 'Sin información registrada'
       : value
 
   return (
-    <div>
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+    <div className="rounded-xl border border-slate-100 bg-slate-50/70 px-3.5 py-3">
+      <dt className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
         {label}
       </dt>
 
       <dd
-        className={`mt-1 text-sm font-medium ${
+        className={`mt-1.5 text-sm font-medium ${
           display ===
           'Sin información registrada'
             ? 'italic text-slate-400'
-            : 'text-slate-700'
+            : 'text-slate-800'
         }`}
       >
         {display}
@@ -403,29 +557,42 @@ function RecordValue({
   )
 }
 
+
 function DataGrid({
   items,
   form,
   canModify,
   onChange,
-  columns = 'sm:grid-cols-2',
+  columns =
+    'sm:grid-cols-2',
 }) {
   return (
     <dl
-      className={`grid gap-x-8 gap-y-5 ${columns}`}
+      className={`grid gap-x-6 gap-y-5 ${columns}`}
     >
-      {items.map((item) => (
-        <RecordValue
-          key={item.label}
-          {...item}
-          form={form}
-          canModify={canModify}
-          onChange={onChange}
-        />
-      ))}
+      {items.map(
+        (item) => (
+          <RecordValue
+            key={
+              item.label
+            }
+            {...item}
+            form={
+              form
+            }
+            canModify={
+              canModify
+            }
+            onChange={
+              onChange
+            }
+          />
+        ),
+      )}
     </dl>
   )
 }
+
 
 function SectionCard({
   title,
@@ -436,10 +603,12 @@ function SectionCard({
 }) {
   return (
     <section
-      aria-label={ariaLabel}
-      className={`rounded-2xl border bg-white p-5 shadow-sm ${
+      aria-label={
+        ariaLabel
+      }
+      className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition ${
         highlighted
-          ? 'border-amber-300 ring-2 ring-amber-50'
+          ? 'border-amber-300 ring-2 ring-amber-100'
           : 'border-slate-200'
       } ${
         wide
@@ -447,16 +616,19 @@ function SectionCard({
           : ''
       }`}
     >
-      <h2 className="font-sans text-xl font-semibold text-slate-900">
-        {title}
-      </h2>
+      <div className="border-b border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-6">
+        <h2 className="font-sans text-lg font-bold text-slate-900 sm:text-xl">
+          {title}
+        </h2>
+      </div>
 
-      <div className="mt-5">
+      <div className="p-5 sm:p-6">
         {children}
       </div>
     </section>
   )
 }
+
 
 function duplicateCandidateFromForm(
   form,
@@ -464,23 +636,28 @@ function duplicateCandidateFromForm(
   return {
     first_name:
       String(
-        form.first_name || '',
+        form.first_name ||
+          '',
       ).trim(),
 
     first_last_name:
       String(
-        form.last_name || '',
+        form.last_name ||
+          '',
       ).trim(),
 
     date_of_birth:
-      form.date_of_birth || null,
+      form.date_of_birth ||
+      null,
 
     phone:
       String(
-        form.phone || '',
+        form.phone ||
+          '',
       ).trim(),
   }
 }
+
 
 function duplicateRelevantFieldsChanged(
   form,
@@ -498,11 +675,14 @@ function duplicateRelevantFieldsChanged(
   )
 }
 
+
 function ProfileIncompleteNotice({
   fields,
   compact = false,
 }) {
-  if (fields.length === 0) {
+  if (
+    fields.length === 0
+  ) {
     return null
   }
 
@@ -520,14 +700,18 @@ function ProfileIncompleteNotice({
 
       <p className="mt-1 text-xs">
         Falta completar:{' '}
+
         {fields
-          .map(profileFieldLabel)
+          .map(
+            profileFieldLabel,
+          )
           .join(', ')}
         .
       </p>
     </div>
   )
 }
+
 
 function CloudSaveIcon() {
   return (
@@ -542,10 +726,12 @@ function CloudSaveIcon() {
       strokeLinejoin="round"
     >
       <path d="M7 18a4 4 0 0 1-.4-7.98A6 6 0 0 1 18.5 11H19a3.5 3.5 0 0 1 0 7H7Z" />
+
       <path d="m9 14 3-3 3 3M12 11v7" />
     </svg>
   )
 }
+
 
 function CloseIcon() {
   return (
@@ -563,10 +749,7 @@ function CloseIcon() {
   )
 }
 
-/*
- * ÚNICO ICONO NUEVO:
- * usado por el botón Imprimir.
- */
+
 function PrintIcon() {
   return (
     <svg
@@ -588,6 +771,7 @@ function PrintIcon() {
   )
 }
 
+
 function DiseaseGroup({
   title,
   values,
@@ -596,39 +780,58 @@ function DiseaseGroup({
   onChange,
   hiddenField,
 }) {
-  const [open, setOpen] =
-    useState(false)
+  const [
+    open,
+    setOpen,
+  ] = useState(false)
 
   const active =
     Object.entries(
       values || {},
     )
       .filter(
-        ([name, selected]) =>
-          name !== 'other' &&
-          name !== hiddenField &&
+        ([
+          name,
+          selected,
+        ]) =>
+          name !==
+            'other' &&
+          name !==
+            hiddenField &&
           selected,
       )
       .map(
         ([name]) =>
-          labels[name] || name,
+          labels[name] ||
+          name,
       )
 
-  if (values?.other) {
-    active.push(values.other)
+  if (
+    values?.other
+  ) {
+    active.push(
+      values.other,
+    )
   }
 
   const summary =
-    active.length > 0 ? (
+    active.length >
+    0 ? (
       <span className="flex flex-wrap gap-2">
-        {active.map((label) => (
-          <span
-            key={label}
-            className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800"
-          >
-            {label}
-          </span>
-        ))}
+        {active.map(
+          (label) => (
+            <span
+              key={
+                label
+              }
+              className="rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-xs font-semibold text-cyan-800"
+            >
+              {
+                label
+              }
+            </span>
+          ),
+        )}
       </span>
     ) : (
       <span className="text-sm italic text-slate-400">
@@ -637,91 +840,129 @@ function DiseaseGroup({
     )
 
   return (
-    <div>
-      <h3 className="mb-3 text-sm font-semibold text-slate-800">
-        {title}
-      </h3>
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold text-slate-800">
+          {title}
+        </h3>
 
-      {canModify ? (
-        <>
+        {canModify ? (
           <button
             type="button"
             aria-label={`Editar ${title}`}
-            aria-expanded={open}
+            aria-expanded={
+              open
+            }
             onClick={() =>
               setOpen(
-                (current) => !current,
+                (
+                  current,
+                ) =>
+                  !current,
               )
             }
-            className="-m-2 w-[calc(100%+1rem)] rounded-lg border border-transparent p-2 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
           >
-            {summary}
+            {open
+              ? 'Cerrar'
+              : 'Editar'}
           </button>
+        ) : null}
+      </div>
 
-          {open ? (
-            <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2">
-              {Object.entries(
-                labels,
-              ).map(
-                ([name, label]) => (
-                  <label
-                    key={name}
-                    className="flex items-center gap-2 text-xs text-slate-700"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={Boolean(
-                        values?.[name],
-                      )}
-                      onChange={(
-                        event,
-                      ) =>
-                        onChange(
-                          name,
-                          event.target.checked,
-                        )
-                      }
-                      className="h-4 w-4 accent-blue-700"
-                    />
+      <div className="mt-3">
+        {summary}
+      </div>
 
-                    {label}
-                  </label>
-                ),
-              )}
-
-              <label className="grid gap-1 text-xs font-medium text-slate-700 sm:col-span-2">
-                Otros
-
+      {canModify &&
+      open ? (
+        <div className="mt-4 grid gap-2.5 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2">
+          {Object.entries(
+            labels,
+          ).map(
+            ([
+              name,
+              label,
+            ]) => (
+              <label
+                key={
+                  name
+                }
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition ${
+                  values?.[
+                    name
+                  ]
+                    ? 'border-blue-200 bg-blue-50 text-blue-900'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                }`}
+              >
                 <input
-                  aria-label={`${title}: otros`}
-                  value={
-                    values?.other || ''
-                  }
+                  type="checkbox"
+                  checked={Boolean(
+                    values?.[
+                      name
+                    ],
+                  )}
                   onChange={(
                     event,
                   ) =>
                     onChange(
-                      'other',
-                      event.target.value,
+                      name,
+                      event
+                        .target
+                        .checked,
                     )
                   }
-                  className={inputClass}
+                  className="h-4 w-4 rounded border-slate-300 accent-blue-700"
                 />
+
+                <span>
+                  {
+                    label
+                  }
+                </span>
               </label>
-            </div>
-          ) : null}
-        </>
-      ) : (
-        summary
-      )}
+            ),
+          )}
+
+          <label className="grid text-xs font-bold uppercase tracking-[0.08em] text-slate-500 sm:col-span-2">
+            Otros
+
+            <input
+              aria-label={`${title}: otros`}
+              value={
+                values?.other ||
+                ''
+              }
+              onChange={(
+                event,
+              ) =>
+                onChange(
+                  'other',
+                  event
+                    .target
+                    .value,
+                )
+              }
+              placeholder="Especificar otro antecedente"
+              className={
+                inputClass
+              }
+            />
+          </label>
+        </div>
+      ) : null}
     </div>
   )
 }
 
+
 export default function PatientRecordPage({
   isNew = false,
 }) {
-  const { id } = useParams()
+  const {
+    id,
+  } = useParams()
 
   const {
     user,
@@ -743,46 +984,69 @@ export default function PatientRecordPage({
   const pendingPatientPayloadRef =
     useRef(null)
 
-  const [patient, setPatient] =
-    useState(null)
+  const [
+    patient,
+    setPatient,
+  ] = useState(null)
 
-  const [form, setForm] =
-    useState(makeEmptyForm)
+  const [
+    form,
+    setForm,
+  ] = useState(
+    makeEmptyForm,
+  )
 
   const [
     baselineForm,
     setBaselineForm,
-  ] = useState(makeEmptyForm)
+  ] = useState(
+    makeEmptyForm,
+  )
 
-  const [loading, setLoading] =
-    useState(!isNew)
+  const [
+    loading,
+    setLoading,
+  ] = useState(
+    !isNew,
+  )
 
-  const [saving, setSaving] =
-    useState(false)
+  const [
+    saving,
+    setSaving,
+  ] = useState(false)
 
-  const [exporting, setExporting] =
-    useState(false)
+  const [
+    exporting,
+    setExporting,
+  ] = useState(false)
 
-  /*
-   * ÚNICO ESTADO NUEVO:
-   * controla el botón Imprimir.
-   */
-  const [printing, setPrinting] =
-    useState(false)
+  const [
+    printing,
+    setPrinting,
+  ] = useState(false)
 
-  const [error, setError] =
-    useState('')
+  const [
+    error,
+    setError,
+  ] = useState('')
 
   const [
     clinicalReason,
     setClinicalReason,
   ] = useState('')
 
+  const [
+    duplicateMatches,
+    setDuplicateMatches,
+  ] = useState([])
+
+
   const clinicalDirty =
     !isNew &&
     JSON.stringify(
-      payloadFromForm(form)
-        .clinical_record,
+      payloadFromForm(
+        form,
+      ).clinical_record,
     ) !==
       JSON.stringify(
         payloadFromForm(
@@ -790,10 +1054,6 @@ export default function PatientRecordPage({
         ).clinical_record,
       )
 
-  const [
-    duplicateMatches,
-    setDuplicateMatches,
-  ] = useState([])
 
   const canViewTreatments =
     user.role ===
@@ -801,6 +1061,7 @@ export default function PatientRecordPage({
     user.permissions?.includes(
       'consultations.view',
     )
+
 
   const canExport =
     !isNew &&
@@ -817,6 +1078,7 @@ export default function PatientRecordPage({
       )
     )
 
+
   const treatmentPlan =
     useLongitudinalTreatmentPlan(
       accessToken,
@@ -824,6 +1086,7 @@ export default function PatientRecordPage({
       !isNew &&
         canViewTreatments,
     )
+
 
   useEffect(() => {
     if (
@@ -833,42 +1096,63 @@ export default function PatientRecordPage({
       return undefined
     }
 
-    let active = true
+    let active =
+      true
 
     getPatient(
       accessToken,
       id,
     )
-      .then((data) => {
-        if (!active) {
-          return
-        }
+      .then(
+        (data) => {
+          if (
+            !active
+          ) {
+            return
+          }
 
-        const loadedForm =
-          formFromPatient(data)
+          const loadedForm =
+            formFromPatient(
+              data,
+            )
 
-        setPatient(data)
+          setPatient(
+            data,
+          )
 
-        setForm(loadedForm)
+          setForm(
+            loadedForm,
+          )
 
-        setBaselineForm(
-          loadedForm,
-        )
-      })
+          setBaselineForm(
+            loadedForm,
+          )
+        },
+      )
       .catch(
-        (requestError) => {
-          if (active) {
+        (
+          requestError,
+        ) => {
+          if (
+            active
+          ) {
             setError(
               requestError.message,
             )
           }
         },
       )
-      .finally(() => {
-        if (active) {
-          setLoading(false)
-        }
-      })
+      .finally(
+        () => {
+          if (
+            active
+          ) {
+            setLoading(
+              false,
+            )
+          }
+        },
+      )
 
     return () => {
       active = false
@@ -879,6 +1163,7 @@ export default function PatientRecordPage({
     isNew,
   ])
 
+
   useEffect(() => {
     allowNavigationRef.current =
       false
@@ -887,54 +1172,89 @@ export default function PatientRecordPage({
     isNew,
   ])
 
+
+  useEffect(() => {
+    if (
+      !isNew
+    ) {
+      return undefined
+    }
+
+    const previousOverflow =
+      document.body.style.overflow
+
+    document.body.style.overflow =
+      'hidden'
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow
+    }
+  }, [
+    isNew,
+  ])
+
+
   const update = ({
     target,
   }) =>
-    setForm((current) => {
-      const next = {
-        ...current,
+    setForm(
+      (current) => {
+        const next = {
+          ...current,
 
-        [target.name]:
-          target.name ===
-          'is_active'
-            ? target.value ===
-              'true'
-            : target.type ===
-                'checkbox'
-              ? target.checked
-              : target.value,
-      }
+          [target.name]:
+            target.name ===
+            'is_active'
+              ? target.value ===
+                'true'
+              : target.type ===
+                  'checkbox'
+                ? target.checked
+                : target.value,
+        }
 
-      if (
-        next.identification_type ===
-          'CEDULA' &&
-        [
-          'identification_type',
-          'identification_number',
-        ].includes(target.name)
-      ) {
-        next.identification_number =
-          formatCedula(
-            next.identification_number,
+        if (
+          next.identification_type ===
+            'CEDULA' &&
+          [
+            'identification_type',
+            'identification_number',
+          ].includes(
+            target.name,
           )
-      }
+        ) {
+          next.identification_number =
+            formatCedula(
+              next.identification_number,
+            )
+        }
 
-      return next
-    })
+        return next
+      },
+    )
+
 
   const updateDisease = (
     group,
     name,
     value,
   ) =>
-    setForm((current) => ({
-      ...current,
+    setForm(
+      (current) => ({
+        ...current,
 
-      [group]: {
-        ...current[group],
-        [name]: value,
-      },
-    }))
+        [group]: {
+          ...current[
+            group
+          ],
+
+          [name]:
+            value,
+        },
+      }),
+    )
+
 
   const canCreate =
     user.role ===
@@ -943,6 +1263,7 @@ export default function PatientRecordPage({
       'patients.create',
     )
 
+
   const canEdit =
     user.role ===
       'ADMINISTRADOR' ||
@@ -950,17 +1271,22 @@ export default function PatientRecordPage({
       'patients.edit',
     )
 
+
   const canModify =
     isNew
       ? canCreate
       : canEdit
 
+
   const isDirty =
     canModify &&
-    JSON.stringify(form) !==
+    JSON.stringify(
+      form,
+    ) !==
       JSON.stringify(
         baselineForm,
       )
+
 
   const blocker =
     useBlocker(
@@ -976,6 +1302,7 @@ export default function PatientRecordPage({
       ),
     )
 
+
   useBeforeUnload(
     useCallback(
       (event) => {
@@ -985,7 +1312,8 @@ export default function PatientRecordPage({
         ) {
           event.preventDefault()
 
-          event.returnValue = ''
+          event.returnValue =
+            ''
         }
       },
       [
@@ -995,13 +1323,20 @@ export default function PatientRecordPage({
     ),
   )
 
+
   const record =
-    patient?.clinical_record || {}
+    patient?.clinical_record ||
+    {}
+
 
   const currentName =
     `${form.first_name} ${form.last_name} ${form.second_last_name}`
-      .replace(/\s+/g, ' ')
+      .replace(
+        /\s+/g,
+        ' ',
+      )
       .trim()
+
 
   const title =
     canModify
@@ -1018,6 +1353,7 @@ export default function PatientRecordPage({
           'Paciente'
         )
 
+
   const initials =
     canModify
       ? (
@@ -1027,40 +1363,110 @@ export default function PatientRecordPage({
         )
       : `${patient?.first_name?.[0] || ''}${patient?.last_name?.[0] || ''}`.toUpperCase()
 
-  const discard = () => {
-    if (isNew) {
-      allowNavigationRef.current =
-        true
 
-      navigate('/pacientes')
+  const discard =
+    async () => {
+      if (
+        isDirty
+      ) {
+        const result =
+          await Swal.fire({
+            title:
+              isNew
+                ? '¿Cancelar el registro?'
+                : '¿Descartar los cambios?',
 
-      return
+            text:
+              isNew
+                ? 'Los datos ingresados se perderán.'
+                : 'Se restaurará la información guardada del paciente.',
+
+            icon:
+              'warning',
+
+            showCancelButton:
+              true,
+
+            confirmButtonText:
+              isNew
+                ? 'Sí, salir'
+                : 'Sí, descartar',
+
+            cancelButtonText:
+              'Continuar editando',
+
+            reverseButtons:
+              true,
+
+            focusCancel:
+              true,
+
+            confirmButtonColor:
+              '#1d4ed8',
+
+            cancelButtonColor:
+              '#64748b',
+          })
+
+        if (
+          !result.isConfirmed
+        ) {
+          return
+        }
+      }
+
+      if (
+        isNew
+      ) {
+        allowNavigationRef.current =
+          true
+
+        navigate(
+          '/pacientes',
+        )
+
+        return
+      }
+
+      setForm(
+        baselineForm,
+      )
+
+      setClinicalReason(
+        '',
+      )
+
+      setError('')
+
+      setDuplicateMatches(
+        [],
+      )
+
+      pendingPatientPayloadRef.current =
+        null
     }
 
-    setForm(baselineForm)
-
-    setClinicalReason('')
-
-    setError('')
-
-    setDuplicateMatches([])
-
-    pendingPatientPayloadRef.current =
-      null
-  }
 
   const persistPatient =
-    async (payload) => {
-      if (clinicalDirty) {
+    async (
+      payload,
+    ) => {
+      if (
+        clinicalDirty
+      ) {
         payload = {
           ...payload,
+
           clinical_change_reason:
             clinicalReason.trim(),
         }
       }
 
-      const saved =
+      const creating =
         isNew
+
+      const saved =
+        creating
           ? await createPatient(
               accessToken,
               payload,
@@ -1070,43 +1476,114 @@ export default function PatientRecordPage({
               id,
               {
                 ...payload,
+
                 expected_version:
                   patient.version,
               },
             )
 
       const savedForm =
-        formFromPatient(saved)
+        formFromPatient(
+          saved,
+        )
 
-      setPatient(saved)
+      setPatient(
+        saved,
+      )
 
-      setForm(savedForm)
+      setForm(
+        savedForm,
+      )
 
       setBaselineForm(
         savedForm,
       )
 
-      setClinicalReason('')
+      setClinicalReason(
+        '',
+      )
 
       pendingPatientPayloadRef.current =
         null
 
-      if (isNew) {
+      await Swal.fire({
+        icon:
+          'success',
+
+        title:
+          creating
+            ? 'Paciente registrado'
+            : 'Cambios guardados',
+
+        text:
+          creating
+            ? 'El expediente del paciente fue creado correctamente.'
+            : 'La información del paciente se actualizó correctamente.',
+
+        confirmButtonText:
+          'Aceptar',
+
+        confirmButtonColor:
+          '#1d4ed8',
+      })
+
+      if (
+        creating
+      ) {
         allowNavigationRef.current =
           true
 
         navigate(
           `/pacientes/${saved.id}`,
           {
-            replace: true,
+            replace:
+              true,
           },
         )
       }
+
+      return saved
     }
 
+
+  const showSaveError =
+    async (
+      requestError,
+    ) => {
+      const message =
+        requestError?.message ||
+        'No fue posible guardar la información del paciente.'
+
+      setError(
+        message,
+      )
+
+      await Swal.fire({
+        icon:
+          'error',
+
+        title:
+          'No se pudo guardar',
+
+        text:
+          message,
+
+        confirmButtonText:
+          'Entendido',
+
+        confirmButtonColor:
+          '#1d4ed8',
+      })
+    }
+
+
   const runPatientSave =
-    async (payload) => {
-      setSaving(true)
+    async (
+      payload,
+    ) => {
+      setSaving(
+        true,
+      )
 
       setError('')
 
@@ -1117,19 +1594,24 @@ export default function PatientRecordPage({
       } catch (
         requestError
       ) {
-        setError(
-          requestError.message,
+        await showSaveError(
+          requestError,
         )
       } finally {
-        setSaving(false)
+        setSaving(
+          false,
+        )
 
         submissionPendingRef.current =
           false
       }
     }
 
+
   const submit =
-    async (event) => {
+    async (
+      event,
+    ) => {
       event.preventDefault()
 
       if (
@@ -1141,25 +1623,51 @@ export default function PatientRecordPage({
       submissionPendingRef.current =
         true
 
-      setSaving(true)
+      setSaving(
+        true,
+      )
 
       setError('')
 
       const payload =
-        payloadFromForm(form)
+        payloadFromForm(
+          form,
+        )
 
       if (
         clinicalDirty &&
         !clinicalReason.trim()
       ) {
+        const message =
+          'Indica el motivo del cambio clínico.'
+
         setError(
-          'Indica el motivo del cambio clínico.',
+          message,
         )
 
-        setSaving(false)
+        setSaving(
+          false,
+        )
 
         submissionPendingRef.current =
           false
+
+        await Swal.fire({
+          icon:
+            'warning',
+
+          title:
+            'Falta el motivo del cambio',
+
+          text:
+            message,
+
+          confirmButtonText:
+            'Completar',
+
+          confirmButtonColor:
+            '#1d4ed8',
+        })
 
         return
       }
@@ -1193,8 +1701,10 @@ export default function PatientRecordPage({
                 )
 
           if (
-            duplicateResult.matches
-              .length > 0
+            duplicateResult
+              .matches
+              .length >
+            0
           ) {
             pendingPatientPayloadRef.current =
               payload
@@ -1213,16 +1723,19 @@ export default function PatientRecordPage({
       } catch (
         requestError
       ) {
-        setError(
-          requestError.message,
+        await showSaveError(
+          requestError,
         )
       } finally {
-        setSaving(false)
+        setSaving(
+          false,
+        )
 
         submissionPendingRef.current =
           false
       }
     }
+
 
   const createDespiteWarning =
     () => {
@@ -1239,17 +1752,24 @@ export default function PatientRecordPage({
       const payload =
         pendingPatientPayloadRef.current
 
-      setDuplicateMatches([])
+      setDuplicateMatches(
+        [],
+      )
 
-      runPatientSave(payload)
+      runPatientSave(
+        payload,
+      )
     }
+
 
   const reviewDuplicate =
     (match) => {
       allowNavigationRef.current =
         true
 
-      setDuplicateMatches([])
+      setDuplicateMatches(
+        [],
+      )
 
       pendingPatientPayloadRef.current =
         null
@@ -1259,9 +1779,7 @@ export default function PatientRecordPage({
       )
     }
 
-  /*
-   * EXPORTAR PDF EXISTENTE.
-   */
+
   const exportRecord =
     async () => {
       if (
@@ -1273,7 +1791,9 @@ export default function PatientRecordPage({
       exportPendingRef.current =
         true
 
-      setExporting(true)
+      setExporting(
+        true,
+      )
 
       setError('')
 
@@ -1311,25 +1831,64 @@ export default function PatientRecordPage({
             objectUrl,
           )
         }
+
+        await Swal.fire({
+          toast:
+            true,
+
+          position:
+            'top-end',
+
+          icon:
+            'success',
+
+          title:
+            'PDF generado correctamente',
+
+          showConfirmButton:
+            false,
+
+          timer:
+            2200,
+
+          timerProgressBar:
+            true,
+        })
       } catch (
         requestError
       ) {
+        const message =
+          requestError?.message ||
+          'No se pudo generar el PDF.'
+
         setError(
-          requestError.message,
+          message,
         )
+
+        await Swal.fire({
+          icon:
+            'error',
+
+          title:
+            'No se pudo generar el PDF',
+
+          text:
+            message,
+
+          confirmButtonColor:
+            '#1d4ed8',
+        })
       } finally {
         exportPendingRef.current =
           false
 
-        setExporting(false)
+        setExporting(
+          false,
+        )
       }
     }
 
-  /*
-   * =========================================================
-   * NUEVO: IMPRIMIR EL MISMO PDF
-   * =========================================================
-   */
+
   const printRecord =
     async () => {
       if (
@@ -1338,23 +1897,35 @@ export default function PatientRecordPage({
         return
       }
 
-      /*
-       * Abrimos inmediatamente una ventana vacía.
-       *
-       * Esto es importante porque si esperamos a que
-       * termine el await, algunos navegadores bloquean
-       * la ventana por considerarla popup.
-       */
       const printWindow =
         window.open(
           '',
           '_blank',
         )
 
-      if (!printWindow) {
+      if (
+        !printWindow
+      ) {
+        const message =
+          'El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio.'
+
         setError(
-          'El navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio.',
+          message,
         )
+
+        await Swal.fire({
+          icon:
+            'warning',
+
+          title:
+            'Ventana de impresión bloqueada',
+
+          text:
+            message,
+
+          confirmButtonColor:
+            '#1d4ed8',
+        })
 
         return
       }
@@ -1395,12 +1966,16 @@ export default function PatientRecordPage({
       exportPendingRef.current =
         true
 
-      setPrinting(true)
+      setPrinting(
+        true,
+      )
 
       setError('')
 
       try {
-        const { blob } =
+        const {
+          blob,
+        } =
           await exportPatientClinicalRecord(
             accessToken,
             id,
@@ -1411,10 +1986,6 @@ export default function PatientRecordPage({
             blob,
           )
 
-        /*
-         * Cargamos el PDF generado por el backend
-         * dentro de la ventana que acabamos de abrir.
-         */
         printWindow.location.replace(
           objectUrl,
         )
@@ -1436,15 +2007,10 @@ export default function PatientRecordPage({
 
             try {
               printWindow.focus()
-
               printWindow.print()
             } catch {
-              /*
-               * Si el visor PDF del navegador no
-               * permite print() automático, el PDF
-               * queda abierto para que el usuario
-               * pueda imprimirlo manualmente.
-               */
+              // El PDF permanece abierto
+              // para impresión manual.
             }
           }
 
@@ -1456,24 +2022,19 @@ export default function PatientRecordPage({
             )
           }
 
-        /*
-         * Respaldo porque algunos visores PDF
-         * no disparan onload de forma consistente.
-         */
         setTimeout(
           openPrintDialog,
           1800,
         )
 
-        /*
-         * No revocamos inmediatamente la URL:
-         * el visor necesita mantenerla disponible.
-         */
-        setTimeout(() => {
-          URL.revokeObjectURL(
-            objectUrl,
-          )
-        }, 120000)
+        setTimeout(
+          () => {
+            URL.revokeObjectURL(
+              objectUrl,
+            )
+          },
+          120000,
+        )
       } catch (
         requestError
       ) {
@@ -1483,25 +2044,48 @@ export default function PatientRecordPage({
           printWindow.close()
         }
 
+        const message =
+          requestError?.message ||
+          'No se pudo imprimir el expediente.'
+
         setError(
-          requestError.message ||
-            'No se pudo imprimir el expediente.',
+          message,
         )
+
+        await Swal.fire({
+          icon:
+            'error',
+
+          title:
+            'No se pudo imprimir',
+
+          text:
+            message,
+
+          confirmButtonColor:
+            '#1d4ed8',
+        })
       } finally {
         exportPendingRef.current =
           false
 
-        setPrinting(false)
+        setPrinting(
+          false,
+        )
       }
     }
 
-  if (loading) {
+
+  if (
+    loading
+  ) {
     return (
       <p className="p-10 text-center text-sm text-slate-500">
         Cargando expediente…
       </p>
     )
   }
+
 
   if (
     error &&
@@ -1527,25 +2111,31 @@ export default function PatientRecordPage({
     )
   }
 
+
   const personalSource =
     canModify
       ? form
-      : patient || form
+      : patient ||
+        form
+
 
   const recordSource =
     canModify
       ? form
       : record
 
+
   const identityText =
     patientIdentity(
       personalSource,
     )
 
+
   const isMinor =
     isMinorDate(
       personalSource.date_of_birth,
     )
+
 
   const missingProfileFields =
     patientMissingProfileFields(
@@ -1553,12 +2143,14 @@ export default function PatientRecordPage({
       canModify,
     )
 
+
   const profileComplete =
     canModify
       ? missingProfileFields.length ===
         0
       : patient?.profile_complete !==
         false
+
 
   const missingGuardianFields =
     missingProfileFields.filter(
@@ -1568,12 +2160,25 @@ export default function PatientRecordPage({
         ),
     )
 
-  return (
+
+  const formContent = (
     <form
-      onSubmit={submit}
-      className="mx-auto w-full max-w-6xl pb-20"
+      onSubmit={
+        submit
+      }
+      className={
+        isNew
+          ? 'flex min-h-0 flex-1 flex-col'
+          : 'mx-auto w-full max-w-6xl pb-20'
+      }
     >
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div
+        className={
+          isNew
+            ? 'hidden'
+            : 'mb-5 flex flex-wrap items-center justify-between gap-4'
+        }
+      >
         <Link
           to="/pacientes"
           className="text-sm font-medium text-slate-600 no-underline hover:text-blue-700"
@@ -1584,10 +2189,11 @@ export default function PatientRecordPage({
         <div className="flex flex-wrap items-center gap-2">
           {canExport ? (
             <>
-              {/* BOTÓN NUEVO */}
               <button
                 type="button"
-                onClick={printRecord}
+                onClick={
+                  printRecord
+                }
                 disabled={
                   printing ||
                   exporting
@@ -1601,10 +2207,11 @@ export default function PatientRecordPage({
                   : 'Imprimir'}
               </button>
 
-              {/* BOTÓN ORIGINAL */}
               <button
                 type="button"
-                onClick={exportRecord}
+                onClick={
+                  exportRecord
+                }
                 disabled={
                   exporting ||
                   printing
@@ -1618,14 +2225,17 @@ export default function PatientRecordPage({
             </>
           ) : null}
 
-          {isDirty ? (
+          {isDirty &&
+          !isNew ? (
             <div
               aria-label="Acciones de cambios"
               className="fixed right-5 bottom-[calc(1.25rem+env(safe-area-inset-bottom))] z-40 flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-lg sm:right-8"
             >
               <button
                 type="submit"
-                disabled={saving}
+                disabled={
+                  saving
+                }
                 aria-label="Guardar cambios"
                 title="Guardar cambios"
                 className="grid h-9 w-9 place-items-center rounded-lg text-blue-700 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 disabled:opacity-50"
@@ -1639,8 +2249,12 @@ export default function PatientRecordPage({
 
               <button
                 type="button"
-                onClick={discard}
-                disabled={saving}
+                onClick={
+                  discard
+                }
+                disabled={
+                  saving
+                }
                 aria-label="Descartar cambios"
                 title="Descartar cambios"
                 className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 disabled:opacity-50"
@@ -1652,27 +2266,43 @@ export default function PatientRecordPage({
         </div>
       </div>
 
-      <PatientHeader
-        patient={patient}
-        title={title}
-        initials={initials}
-        isActive={form.is_active}
-        identityText={
-          identityText ||
-          'Completa los datos para crear el expediente clínico.'
-        }
-        profileComplete={
-          profileComplete
-        }
-      />
 
-      <PatientTabs
-        patientId={
-          patient?.id
-        }
-        active="summary"
-        isNew={isNew}
-      />
+      {!isNew ? (
+        <>
+          <PatientHeader
+            patient={
+              patient
+            }
+            title={
+              title
+            }
+            initials={
+              initials
+            }
+            isActive={
+              form.is_active
+            }
+            identityText={
+              identityText ||
+              'Completa los datos para crear el expediente clínico.'
+            }
+            profileComplete={
+              profileComplete
+            }
+          />
+
+          <PatientTabs
+            patientId={
+              patient?.id
+            }
+            active="summary"
+            isNew={
+              isNew
+            }
+          />
+        </>
+      ) : null}
+
 
       {error ? (
         <p
@@ -1683,6 +2313,7 @@ export default function PatientRecordPage({
         </p>
       ) : null}
 
+
       {!profileComplete ? (
         <ProfileIncompleteNotice
           fields={
@@ -1690,6 +2321,7 @@ export default function PatientRecordPage({
           }
         />
       ) : null}
+
 
       <div className="mt-6">
         <ClinicalAlertsBanner
@@ -1699,6 +2331,7 @@ export default function PatientRecordPage({
         />
       </div>
 
+
       {clinicalDirty ? (
         <label className="mt-5 grid gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold">
           Motivo del cambio clínico
@@ -1706,13 +2339,19 @@ export default function PatientRecordPage({
           <textarea
             aria-label="Motivo del cambio clínico"
             required
-            maxLength={1000}
+            maxLength={
+              1000
+            }
             value={
               clinicalReason
             }
-            onChange={(event) =>
+            onChange={(
+              event,
+            ) =>
               setClinicalReason(
-                event.target.value,
+                event
+                  .target
+                  .value,
               )
             }
             rows={2}
@@ -1721,14 +2360,20 @@ export default function PatientRecordPage({
         </label>
       ) : null}
 
+
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
+
         {!isNew &&
         canEdit ? (
           <SectionCard title="Estado administrativo">
             <DataGrid
-              form={form}
+              form={
+                form
+              }
               canModify
-              onChange={update}
+              onChange={
+                update
+              }
               columns="grid-cols-1"
               items={[
                 {
@@ -1776,6 +2421,7 @@ export default function PatientRecordPage({
           </SectionCard>
         ) : null}
 
+
         {!isNew &&
         canViewTreatments ? (
           <LongitudinalTreatmentPlan
@@ -1803,15 +2449,20 @@ export default function PatientRecordPage({
           />
         ) : null}
 
+
         {canModify ? (
           <SectionCard
             title="Editar alertas clínicas"
             wide
           >
             <DataGrid
-              form={form}
+              form={
+                form
+              }
               canModify
-              onChange={update}
+              onChange={
+                update
+              }
               items={[
                 {
                   label:
@@ -1885,16 +2536,21 @@ export default function PatientRecordPage({
           </SectionCard>
         ) : null}
 
+
         <SectionCard
           title="Datos personales"
           wide
         >
           <DataGrid
-            form={form}
+            form={
+              form
+            }
             canModify={
               canModify
             }
-            onChange={update}
+            onChange={
+              update
+            }
             items={[
               {
                 label:
@@ -1907,7 +2563,7 @@ export default function PatientRecordPage({
                   'first_name',
 
                 required:
-                  true,
+                  !isNew,
               },
 
               {
@@ -1921,7 +2577,7 @@ export default function PatientRecordPage({
                   'last_name',
 
                 required:
-                  true,
+                  !isNew,
               },
 
               {
@@ -1959,7 +2615,7 @@ export default function PatientRecordPage({
                   'date',
 
                 required:
-                  true,
+                  !isNew,
               },
 
               {
@@ -1973,7 +2629,7 @@ export default function PatientRecordPage({
                   'birth_place',
 
                 required:
-                  true,
+                  !isNew,
               },
 
               {
@@ -1993,7 +2649,7 @@ export default function PatientRecordPage({
                   'select',
 
                 required:
-                  true,
+                  !isNew,
 
                 options: [
                   {
@@ -2188,13 +2844,18 @@ export default function PatientRecordPage({
           />
         </SectionCard>
 
+
         <SectionCard title="Identificación">
           <DataGrid
-            form={form}
+            form={
+              form
+            }
             canModify={
               canModify
             }
-            onChange={update}
+            onChange={
+              update
+            }
             columns="grid-cols-1"
             items={[
               {
@@ -2286,7 +2947,7 @@ export default function PatientRecordPage({
                   form.identification_type ===
                   'CEDULA'
                     ? '281-090403-1006K'
-                    : undefined,
+                    : 'Número de identificación',
               },
             ]}
           />
@@ -2295,6 +2956,7 @@ export default function PatientRecordPage({
             El número es opcional. Si se registra, selecciona el tipo correspondiente.
           </p>
         </SectionCard>
+
 
         <SectionCard
           title="Responsable / Tutor"
@@ -2327,11 +2989,15 @@ export default function PatientRecordPage({
           )}
 
           <DataGrid
-            form={form}
+            form={
+              form
+            }
             canModify={
               canModify
             }
-            onChange={update}
+            onChange={
+              update
+            }
             columns="grid-cols-1"
             items={[
               {
@@ -2373,6 +3039,7 @@ export default function PatientRecordPage({
           />
         </SectionCard>
 
+
         <SectionCard
           title="Historia de la enfermedad actual"
           wide
@@ -2384,13 +3051,18 @@ export default function PatientRecordPage({
             }
             field="present_illness_history"
             type="textarea"
-            form={form}
+            form={
+              form
+            }
             canModify={
               canModify
             }
-            onChange={update}
+            onChange={
+              update
+            }
           />
         </SectionCard>
+
 
         <SectionCard
           title="Antecedentes familiares patológicos"
@@ -2403,11 +3075,15 @@ export default function PatientRecordPage({
             }
             field="family_history"
             type="textarea"
-            form={form}
+            form={
+              form
+            }
             canModify={
               canModify
             }
-            onChange={update}
+            onChange={
+              update
+            }
           />
 
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
@@ -2465,9 +3141,10 @@ export default function PatientRecordPage({
         </SectionCard>
       </div>
 
+
       {blocker.state ===
       'blocked' ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
+        <div className="fixed inset-0 z-[150] grid place-items-center bg-slate-950/40 p-4 backdrop-blur-[1px]">
           <section
             role="dialog"
             aria-modal="true"
@@ -2513,25 +3190,73 @@ export default function PatientRecordPage({
         </div>
       ) : null}
 
+
       {!isNew ? (
         <ClinicalHistoryPanel
           accessToken={
             accessToken
           }
-          patientId={id}
+          patientId={
+            id
+          }
         />
       ) : null}
+
+
+      {isNew ? (
+        <div className="sticky bottom-0 z-20 mt-6 -mx-1 flex flex-col-reverse gap-3 border-t border-slate-200 bg-white/95 px-1 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-end">
+          <button
+            type="button"
+            onClick={
+              discard
+            }
+            disabled={
+              saving
+            }
+            className="h-12 rounded-xl border border-slate-300 bg-white px-6 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            disabled={
+              saving ||
+              !canCreate
+            }
+            className="inline-flex h-12 min-w-[180px] items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 text-sm font-bold text-white shadow-md shadow-blue-100 transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 disabled:shadow-none"
+          >
+            {saving ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                />
+
+                Guardando…
+              </>
+            ) : (
+              'Crear paciente'
+            )}
+          </button>
+        </div>
+      ) : null}
+
 
       <PatientDuplicateDialog
         matches={
           duplicateMatches
         }
-        busy={saving}
+        busy={
+          saving
+        }
         onReview={
           reviewDuplicate
         }
         onBack={() => {
-          setDuplicateMatches([])
+          setDuplicateMatches(
+            [],
+          )
 
           pendingPatientPayloadRef.current =
             null
@@ -2541,5 +3266,65 @@ export default function PatientRecordPage({
         }
       />
     </form>
+  )
+
+
+  if (
+    !isNew
+  ) {
+    return formContent
+  }
+
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-3 backdrop-blur-[2px] sm:p-5"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-patient-modal-title"
+        className="flex h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+      >
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:px-7">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-700">
+              Expediente clínico
+            </p>
+
+            <h1
+              id="new-patient-modal-title"
+              className="mt-1 truncate text-xl font-bold text-slate-900 sm:text-2xl"
+            >
+              Nuevo paciente
+            </h1>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Registra la información disponible. Los datos faltantes podrán agregarse después desde el expediente.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              discard
+            }
+            disabled={
+              saving
+            }
+            aria-label="Cerrar nuevo paciente"
+            title="Cerrar"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-2xl leading-none text-slate-500 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/60 px-4 py-5 sm:px-6 lg:px-8">
+          {formContent}
+        </div>
+      </section>
+    </div>
   )
 }
