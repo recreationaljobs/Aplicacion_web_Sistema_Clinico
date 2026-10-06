@@ -237,7 +237,7 @@ export default function Sidebar() {
             src={sidebarDental}
             alt="Ilustración odontológica"
             className="
-              h-[500px]
+              h-[250px]
               w-full
               object-cover
               object-center
