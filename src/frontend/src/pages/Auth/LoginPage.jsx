@@ -1,40 +1,74 @@
-import { useSystemFeatures } from '../../context/systemFeaturesValue'
-import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  useState,
+} from 'react'
+
+import {
+  Link,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom'
+
+import {
+  useSystemFeatures,
+} from '../../context/systemFeaturesValue'
+
+import {
+  useAuth,
+} from '../../context/authContextValue'
+
+import {
+  login,
+} from '../../services/authService'
+
+import CustomButton from '../../components/CustomButton'
 
 import logo from '../../assets/vite.jpeg'
 import image from '../../assets/imagen_login.webp'
 
-import CustomButton from '../../components/CustomButton'
-import { useAuth } from '../../context/authContextValue'
-import { login } from '../../services/authService'
-
 
 export default function LoginPage() {
   const {
-    password_reset: passwordResetEnabled,
+    password_reset:
+      passwordResetEnabled,
   } = useSystemFeatures()
 
-  const [form, setForm] = useState({
+  const [
+    form,
+    setForm,
+  ] = useState({
     email: '',
     password: '',
   })
 
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [
+    error,
+    setError,
+  ] = useState('')
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false)
 
   const [
     showPassword,
     setShowPassword,
   ] = useState(false)
 
-  const { signIn } = useAuth()
+  const {
+    signIn,
+  } = useAuth()
 
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate =
+    useNavigate()
+
+  const location =
+    useLocation()
 
 
-  const [notice] = useState(() => {
+  const [
+    notice,
+  ] = useState(() => {
     const storedNotice =
       sessionStorage.getItem(
         'dentalclinic_auth_notice',
@@ -45,18 +79,24 @@ export default function LoginPage() {
     )
 
     return (
-      location.state?.notice ||
+      location.state
+        ?.notice ||
       storedNotice ||
       ''
     )
   })
 
 
-  const change = ({ target }) => {
-    setForm((current) => ({
-      ...current,
-      [target.name]: target.value,
-    }))
+  const change = ({
+    target,
+  }) => {
+    setForm(
+      (current) => ({
+        ...current,
+        [target.name]:
+          target.value,
+      }),
+    )
 
     if (error) {
       setError('')
@@ -64,7 +104,9 @@ export default function LoginPage() {
   }
 
 
-  const submit = async (event) => {
+  const submit = async (
+    event,
+  ) => {
     event.preventDefault()
 
     setError('')
@@ -83,10 +125,13 @@ export default function LoginPage() {
     try {
       setLoading(true)
 
-      const session = await login({
-        email: form.email.trim(),
-        password: form.password,
-      })
+      const session =
+        await login({
+          email:
+            form.email.trim(),
+          password:
+            form.password,
+        })
 
       signIn(session)
 
@@ -99,7 +144,7 @@ export default function LoginPage() {
     } catch (err) {
       setError(
         err.message ||
-        'Correo electrónico o contraseña incorrectos.',
+          'Correo electrónico o contraseña incorrectos.',
       )
     } finally {
       setLoading(false)
@@ -134,6 +179,8 @@ export default function LoginPage() {
           alt=""
           width="720"
           height="1023"
+          loading="eager"
+          decoding="async"
           className="
             h-full
             min-h-screen
@@ -154,8 +201,9 @@ export default function LoginPage() {
           place-items-center
           bg-white
           px-5
-          py-10
+          py-8
           sm:px-8
+          sm:py-10
         "
       >
         <form
@@ -169,11 +217,21 @@ export default function LoginPage() {
         >
           {/* ================= LOGO ================= */}
 
+          {/*
+            La zona del logo tiene una altura fija.
+
+            Aunque el archivo original sea muy alto o muy ancho,
+            nunca podrá aumentar este espacio ni empujar el formulario.
+
+            width y height también ayudan al navegador a conocer
+            las dimensiones antes de terminar de decodificar la imagen.
+          */}
+
           <div
             className="
               mb-6
               flex
-              h-48
+              h-40
               w-full
               items-center
               justify-center
@@ -183,10 +241,16 @@ export default function LoginPage() {
             <img
               src={logo}
               alt="Clínica Argüello"
+              width="320"
+              height="160"
               className="
-                max-h-44
-                max-w-[420px]
+                block
+                h-full
+                w-full
+                max-h-full
+                max-w-[320px]
                 object-contain
+                object-center
               "
             />
           </div>
@@ -196,7 +260,7 @@ export default function LoginPage() {
 
           <p
             className="
-              mb-8
+              mb-7
               self-center
               text-center
               text-sm
@@ -221,7 +285,6 @@ export default function LoginPage() {
           >
             Bienvenido
           </h1>
-
 
           <p
             className="
@@ -299,13 +362,19 @@ export default function LoginPage() {
             id="email"
             name="email"
             type="email"
-            value={form.email}
-            onChange={change}
+            value={
+              form.email
+            }
+            onChange={
+              change
+            }
             placeholder="nombre@clinica.com"
             autoComplete="email"
             inputMode="email"
             spellCheck="false"
-            disabled={loading}
+            disabled={
+              loading
+            }
             className="
               mb-5
               h-12
@@ -359,11 +428,17 @@ export default function LoginPage() {
                   ? 'text'
                   : 'password'
               }
-              value={form.password}
-              onChange={change}
+              value={
+                form.password
+              }
+              onChange={
+                change
+              }
               placeholder="Tu contraseña…"
               autoComplete="current-password"
-              disabled={loading}
+              disabled={
+                loading
+              }
               className="
                 h-12
                 w-full
@@ -398,7 +473,9 @@ export default function LoginPage() {
                     !current,
                 )
               }
-              disabled={loading}
+              disabled={
+                loading
+              }
               aria-label={
                 showPassword
                   ? 'Ocultar contraseña'
@@ -505,7 +582,9 @@ export default function LoginPage() {
 
           <CustomButton
             type="submit"
-            disabled={loading}
+            disabled={
+              loading
+            }
           >
             {loading
               ? 'Iniciando sesión…'

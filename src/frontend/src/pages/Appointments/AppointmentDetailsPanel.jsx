@@ -288,6 +288,7 @@ export default function AppointmentDetailsPanel({
     )
 
   const startAvailable =
+    checkedIn ||
     appointment
       .attendance
       ?.can_start === true
@@ -1918,6 +1919,7 @@ export default function AppointmentDetailsPanel({
               {/* INFO DISPONIBILIDAD */}
 
               {canStart &&
+              !checkedIn &&
               !startAvailable ? (
                 <div
                   role="status"

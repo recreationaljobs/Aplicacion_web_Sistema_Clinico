@@ -294,60 +294,203 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        current_type = self.instance.identification_type if self.instance else None
-        current_number = self.instance.identification_number if self.instance else None
-        identification_type = attrs.get("identification_type", current_type)
-        identification_number = attrs.get("identification_number", current_number)
+
+        # -------------------------------------------------
+        # FORMATEAR CAMPOS DE TEXTO COMO NOMBRE PROPIO
+        # Ejemplo:
+        # wilder jose suarez morales
+        # -> Wilder Jose Suarez Morales
+        # -------------------------------------------------
+
+        title_fields = (
+            "first_name",
+            "last_name",
+            "second_last_name",
+            "father_name",
+            "mother_name",
+            "guardian_name",
+            "guardian_relationship",
+            "emergency_contact_name",
+            "emergency_relationship",
+            "birth_place",
+            "origin",
+            "religion",
+            "education",
+            "profession",
+            "address",
+            "information_source",
+            "information_reliability",
+        )
+
+        for field_name in title_fields:
+            if field_name in attrs:
+                value = attrs[field_name]
+
+                if isinstance(value, str):
+                    value = value.strip()
+
+                    attrs[field_name] = (
+                        value.title()
+                        if value
+                        else value
+                    )
+
+        # -------------------------------------------------
+        # IDENTIFICACIÓN
+        # -------------------------------------------------
+
+        current_type = (
+            self.instance.identification_type
+            if self.instance
+            else None
+        )
+
+        current_number = (
+            self.instance.identification_number
+            if self.instance
+            else None
+        )
+
+        identification_type = attrs.get(
+            "identification_type",
+            current_type,
+        )
+
+        identification_number = attrs.get(
+            "identification_number",
+            current_number,
+        )
 
         if identification_type == "":
             identification_type = None
-        identification_number = normalize_identification_number(identification_number)
-        if identification_type == Patient.IdentificationType.CEDULA and identification_number:
-            formatted_number = format_cedula(identification_number)
+
+        identification_number = (
+            normalize_identification_number(
+                identification_number
+            )
+        )
+
+        if (
+            identification_type
+            == Patient.IdentificationType.CEDULA
+            and identification_number
+        ):
+            formatted_number = format_cedula(
+                identification_number
+            )
+
             identity_changed = (
                 not self.instance
                 or "identification_type" in attrs
                 or "identification_number" in attrs
             )
-            if identity_changed and formatted_number is None:
-                raise serializers.ValidationError({
-                    "identification_number": [
-                        "Usa el formato de cédula 281-090403-1006K: "
-                        "tres dígitos, seis dígitos y cuatro dígitos más una letra."
+
+            if (
+                identity_changed
+                and formatted_number is None
+            ):
+                raise serializers.ValidationError(
+                    {
+                        "identification_number": [
+                            (
+                                "Usa el formato de cédula "
+                                "281-090403-1006K: "
+                                "tres dígitos, seis dígitos "
+                                "y cuatro dígitos más una letra."
+                            )
+                        ],
+                    }
+                )
+
+            identification_number = (
+                formatted_number
+                or identification_number
+            )
+
+        if (
+            identification_number
+            and not identification_type
+        ):
+            raise serializers.ValidationError(
+                {
+                    "identification_type": [
+                        (
+                            "Selecciona el tipo correspondiente "
+                            "al número de identificación."
+                        )
                     ],
-                })
-            identification_number = formatted_number or identification_number
+                }
+            )
 
-        if identification_number and not identification_type:
-            raise serializers.ValidationError({
-                "identification_type": [
-                    "Selecciona el tipo correspondiente al número de identificación."
-                ],
-            })
-        if identification_type and not identification_number:
-            raise serializers.ValidationError({
-                "identification_number": [
-                    "Indica el número o deja también vacío el tipo de identificación."
-                ],
-            })
+        if (
+            identification_type
+            and not identification_number
+        ):
+            raise serializers.ValidationError(
+                {
+                    "identification_number": [
+                        (
+                            "Indica el número o deja también "
+                            "vacío el tipo de identificación."
+                        )
+                    ],
+                }
+            )
 
-        if "identification_type" in attrs or not self.instance:
-            attrs["identification_type"] = identification_type
-        if "identification_number" in attrs or "identification_type" in attrs or not self.instance:
-            attrs["identification_number"] = identification_number
+        if (
+            "identification_type" in attrs
+            or not self.instance
+        ):
+            attrs["identification_type"] = (
+                identification_type
+            )
 
-        for field in ("guardian_name", "guardian_relationship", "guardian_phone"):
+        if (
+            "identification_number" in attrs
+            or "identification_type" in attrs
+            or not self.instance
+        ):
+            attrs["identification_number"] = (
+                identification_number
+            )
+
+        # -------------------------------------------------
+        # RESPONSABLE
+        # -------------------------------------------------
+
+        for field in (
+            "guardian_name",
+            "guardian_relationship",
+            "guardian_phone",
+        ):
             if field in attrs:
                 value = attrs[field]
-                attrs[field] = value.strip() if value and value.strip() else None
 
+                attrs[field] = (
+                    value.strip()
+                    if value and value.strip()
+                    else None
+                )
 
-        if self._identity_conflict_exists(identification_type, identification_number):
-            raise serializers.ValidationError({
-                "identification_number": [
-                    "Ya existe un paciente con este tipo y número de identificación."
-                ],
-            })
+        # -------------------------------------------------
+        # VALIDAR IDENTIFICACIÓN DUPLICADA
+        # -------------------------------------------------
+
+        if self._identity_conflict_exists(
+            identification_type,
+            identification_number,
+        ):
+            raise serializers.ValidationError(
+                {
+                    "identification_number": [
+                        (
+                            "Ya existe un paciente con este "
+                            "tipo y número de identificación."
+                        )
+                    ],
+                }
+            )
+
         return attrs
 
     def create(self, validated_data):
@@ -439,6 +582,9 @@ class PatientDetailSerializer(PatientProfileSerializationMixin, VersionedSeriali
                     }
                 )
             raise
+
+
+    
 
 
 class ConsultationSerializer(VersionedSerializer):

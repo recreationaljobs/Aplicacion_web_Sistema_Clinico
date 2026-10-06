@@ -215,7 +215,7 @@ function fieldPlaceholder(
 
   if (
     normalized.includes(
-      'plan de tratamiento',
+      'Observaciones adicionales del tratamiento',
     )
   ) {
     return 'Describe el plan de tratamiento indicado'
